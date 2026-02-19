@@ -24,3 +24,33 @@ xx %>%
 junk %>% select(depth_m,roll_sd,roll_mean,slope) %>% view
 
 ggplot(junk,aes(x = turbidity_NTU, y = depth_m)) + geom_path()
+
+calculate_stability <- function(x) {
+  if(all(is.na(x))) return(0)
+  cv <- sd(x, na.rm = TRUE) / abs(mean(x, na.rm = TRUE))
+  # Map CV to a score: lower CV = higher score
+  score <- max(0, 100 * (1 - (cv / 0.05)))
+  return(score)
+}
+
+data_scored <- junk %>% select(DateTime,depth_m, depthwholem,
+                               temperature_C,DO_per,DO_mgL,id) %>%
+  group_by(depthwholem) %>%
+  arrange(id) %>%
+  mutate(
+    # 1. Physical movement check
+    depth_velocity = abs(depth_m - lag(depth_m)),
+    is_stationary = depth_velocity < 0.02,
+
+    # 2. Rolling Stability Score (0-100)
+    # Applying it to DO_mgL as the primary indicator
+    stability_score = rollapply(DO_mgL, 5, calculate_stability, fill = NA, align = "right")
+  ) %>%
+  # 3. Filtering and Warning logic
+  mutate(
+    status = case_when(
+      stability_score > 80 ~ "Stable",
+      stability_score > 50 ~ "Settling",
+      TRUE ~ "Unstable"
+    )
+  )
