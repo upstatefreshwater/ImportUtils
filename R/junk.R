@@ -1,13 +1,15 @@
 junk <-
 xx %>%
   group_by(depthwholem) %>%
-  arrange(id)%>%
+  # arrange(id)%>%
   mutate( roll_sd = rollapply(DO_mgL, 5, sd, fill = NA),
           roll_mean = rollapply(DO_mgL, 5, mean, fill = NA),
           slope = abs(c(NA, diff(roll_mean))) ) %>%
   # Require stability AND low slope
   mutate(stable = roll_sd < 0.20 & slope < 0.10,
-         DateTime = mdy_hm(DateTime))
+         # DateTime = mdy_hms(DateTime),
+         DateTime = ymd_hms(DateTime),
+         seconds = lubridate::second(DateTime))
 
 # %>%
 #   # Keep only stable points AFTER first unstable change
@@ -21,9 +23,35 @@ xx %>%
 #                   "chlorophyll_RFU", "bga_fluorescence_RFU", "pressure_psi",
 #                   "latitude_deg", "longitude_deg")))
 
-junk %>% select(depth_m,roll_sd,roll_mean,slope) %>% view
+# junk %>% select(depth_m,roll_sd,roll_mean,slope) %>% view
+#
+# ggplot(junk,aes(y = depth_m*-1)) +
+#   geom_point(aes(x = roll_mean, color = 'rollMean')) +
+#   geom_path(aes(x = roll_mean, color = 'rollMean')) +
+#   geom_point(aes(x = DO_mgL, color = 'Raw')) +
+#   geom_path(aes(x = DO_mgL, color = 'Raw')) +
+#   coord_cartesian(xlim = c(7,10))
+#
+# ggplot(junk,aes(y = depth_m*-1)) +
+#   geom_label(aes(x = DO_mgL,label = as.character(seconds)))
+#
+# ggplot(junk,
+#        aes(x = DateTime, y = temperature_C)) +
+#   geom_path()
+plotstuff <- function(param){
+trash <- junk %>% ungroup() %>%
+  select(DateTime,depth_m,depthwholem,!!sym(param)) %>%
+  mutate(x = c(depthwholem - lag(depthwholem,default = 0)),
+         label = ifelse(x==1,depthwholem,NA))
 
-ggplot(junk,aes(x = turbidity_NTU, y = depth_m)) + geom_path()
+ggplot(trash) +
+  geom_point(aes(x = DateTime, y = !!sym(param))) +
+  geom_label(aes(x = DateTime, y = !!sym(param),label = label),
+             nudge_y = 0.25)
+}
+
+plotstuff('temperature_C')
+plotstuff('DO_mgL')
 
 calculate_stability <- function(x) {
   if(all(is.na(x))) return(0)
@@ -54,3 +82,7 @@ data_scored <- junk %>% select(DateTime,depth_m, depthwholem,
       TRUE ~ "Unstable"
     )
   )
+
+
+plot(junk$temperature_C,junk$depth_m*-1,type = 'p',
+     pch=19)
