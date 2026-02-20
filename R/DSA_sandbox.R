@@ -50,12 +50,13 @@ is_stationary <- function(df,
                           sd_thresh = 0.05,
                           window = 7,
                           min_obs = 15,
-                          drop_cols = TRUE) {
+                          drop_cols = TRUE,
+                          plot = FALSE) {
 
   # Extract datetime vector safely for interval calculation
   times <- df %>% dplyr::pull({{ datetime_col }})
 
-  # Calculate interval
+  # Calculate interval in seconds
   samp_int <- as.numeric(difftime(times[2], times[1], units = "secs"))
 
   if(samp_int > 30){
@@ -66,7 +67,11 @@ is_stationary <- function(df,
   out <- df %>%
     dplyr::mutate(
       # Using your exact names: depth_sd, is_stable_initial, group_id
-      depth_sd = zoo::rollapplyr({{ depth_col }}, width = window, FUN = stats::sd, fill = NA),
+      depth_sd = zoo::rollapplyr({{ depth_col }},
+                                 width = window,
+                                 FUN = stats::sd,
+                                 na.rm = TRUE,
+                                 fill = NA),
       is_stable_initial = .data$depth_sd < sd_thresh,
       group_id = dplyr::consecutive_id(.data$is_stable_initial)
     ) %>%
@@ -88,26 +93,57 @@ is_stationary <- function(df,
     out <- dplyr::select(out, -c(depth_sd, is_stable_initial, group_id, block_duration))
   }
 
+  if(plot){
+    # 1. Get all unique levels
+    levels_list <- as.character(unique(out$is_stationary_status))
+    ncolors <- length(levels_list)
+
+    # 2. Generate random colors for everything first
+    # We name them so ggplot knows exactly which color goes to which level
+    mycolors <- setNames(sample(colors(distinct = TRUE), ncolors), levels_list)
+
+    # 3. Explicitly overwrite your "known" values
+    mycolors['999'] <- 'darkgreen'
+    mycolors['0']   <- 'firebrick'
+    # 2. Visualize to verify the threshold
+    p1 <- ggplot2::ggplot(try, aes(x = 1:nrow(try), y = depth_m)) +
+      ggplot2::geom_line(alpha = 0.4) +
+      ggplot2::geom_point(aes(color = as.factor(is_stationary_status)), size = 0.8) +
+      ggplot2::scale_y_reverse() + # Depth plots usually go down
+      ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
+      ggplot2::scale_color_manual(name = 'Seconds Stationary',
+                                  values = mycolors) +
+      ggplot2::theme_minimal()
+
+    p2 <- ggplot2::ggplot(try, aes(x = 1:nrow(try), y = depth_sd)) +
+      ggplot2::geom_line(aes(color = "Rolling SD")) +  # Map to a name
+      ggplot2::geom_hline(aes(yintercept = 0.02,
+                              color = "SD Threshold",
+                              linetype = "SD Threshold")) +
+      # Define the colors explicitly
+      ggplot2::scale_color_manual(name = "",
+                                  values = c("Rolling SD" = "red",
+                                             "SD Threshold" = NULL)) +
+      # Define the linetypes (solid for the line, dashed for the hline)
+      ggplot2::scale_linetype_manual(name = "",
+                                     values = c("Rolling SD" = "solid",
+                                                "SD Threshold" = "dashed")) +
+      ggplot2::labs(title = "Rolling Standard Deviation",
+                    y = "SD (m)",
+                    x = "Observation Index") +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(legend.position = 'right')
+
+
+    # Combine the plots
+    print(p1 / p2)
+
+  }
   return(out)
 }
 
-try <- is_stationary(dat,drop_cols = F)
-# 2. Visualize to verify the threshold
-p1 <- ggplot(try, aes(x = 1:nrow(try), y = depth_m)) +
-  geom_line(alpha = 0.4) +
-  geom_point(aes(color = as.factor(is_stationary_status)), size = 0.8) +
-  scale_y_reverse() + # Depth plots usually go down
-  labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
-  theme_minimal()
-
-p2 <- ggplot(try, aes(x = 1:nrow(try), y = depth_sd)) +
-  geom_line(color = "red") +
-  geom_hline(yintercept = 0.02, linetype = "dashed", color = "darkgreen") +
-  labs(title = "Rolling Standard Deviation", y = "SD (m)", x = "Observation Index") +
-  theme_minimal()
-
-# Combine the plots
-p1 / p2
+try <- is_stationary(dat,drop_cols = F,
+                     plot = T)
 
 
 
