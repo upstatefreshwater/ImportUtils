@@ -14,18 +14,78 @@ filter <- dplyr::filter
 overwrite.dat <- F
 overwrite.plt <- F
 
-TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole") {
-  # Read in the file ----
+read_datafile <- function(path){
 
   # Read the file to identify the lines
-  file_content <- readLines(file_path)
+  file_content <- readLines(path)
 
   # Find the line number that contains "Date Time"
   start_line <- grep("Date Time", file_content)
-  if (is.na(start_line)) stop("Header row with 'Date Time' not found.") # Check for Date Time Row Existing
-
+  if (length(start_line)==0) {
+  stop("Cannot locate 'Date Time' in the datafile./n
+        Check that 'Date Time' exists in the raw data.") # Check for Date Time Row Existing
+  }
   # Read the CSV starting from the identified line (Date Time)
-  data <- read_csv(file_path, skip = start_line - 1)
+  data <- read_csv(path,
+                   skip = start_line - 1,
+                   show_col_types = FALSE)
+
+  # Format the Date Time column
+  parsed_dates <- parse_date_time(
+    data$`Date Time`,
+    orders = c('ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'),
+    quiet = TRUE
+  )
+
+  # If the first row is NA, it means none of our orders matched the data
+  if (all(is.na(parsed_dates))) {
+    stop(paste0("Format check failed: Could not parse 'Date Time' column with provided formats./n
+            Formats tried were: ", 'ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'))
+  } else {
+    # Apply the successfully parsed dates back to the dataframe
+    data$`Date Time` <- parsed_dates
+    message("Successfully parsed 'Date Time' column.")
+  }
+
+  if(all(is.na(lubridate::second(data$`Date Time`)))) {
+    warning('No seconds were included in the raw data, check the data file formatting for "Date Time" column!')
+  }
+
+  return(data)
+}
+
+# read_datafile(path = 'inst/extdata/2025-09-16_LT1.csv')
+
+rename_cols <- function(data){
+  # name second temperature column - internal temperature - if included in the spreadsheet
+  if ("Temperature (°C) (1153542)" %in% names(data)) {#ERROR, need to check numeric code for other sondes is these were all Sondra
+    data <- data %>% rename(Internal_temperature_C = `Temperature (°C) (1153542)`)
+  }
+
+  # Use gsub to remove undesired (####) in column names
+  cleaned_col_names <- gsub("\\s*\\(\\d+\\)","",colnames(data))
+  # Set the cleaned names as the column names
+  colnames(data) <- cleaned_col_names
+
+  # Checks required DateTime and Depth columns are present
+  required <- c("Date Time", "Depth (m)")
+  missing <- setdiff(required, names(data))
+  if (length(missing)) stop("Missing required columns: ", paste(missing, collapse=", "))
+}
+
+TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole",
+                              stationary_velocity=0.1) {
+  # Read in the file ----
+
+  # # Read the file to identify the lines
+  # file_content <- readLines(file_path)
+  #
+  # # Find the line number that contains "Date Time"
+  # start_line <- grep("Date Time", file_content)
+  # if (is.na(start_line)) stop("Header row with 'Date Time' not found.") # Check for Date Time Row Existing
+  #
+  # # Read the CSV starting from the identified line (Date Time)
+  # data <- read_csv(file_path, skip = start_line - 1)
 
   # Rename Columns ----
   # name second temperature column - internal temperature - if included in the spreadsheet
@@ -61,11 +121,11 @@ TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole")
 
   data <- data%>%select(any_of(param_col))%>%rename(any_of(param_rename))%>%
     # Columns for Depth Rounded to the Half Meter and Whole Meter
-    mutate(depth_halfm = (round(depth_m/0.5)*0.5), depthwholem = (round_half_up(depth_m)))
-
-
-
-
+    mutate(depth_halfm = (round(depth_m/0.5)*0.5),
+           depthwholem = (round_half_up(depth_m)),
+   # ****Determine when the sonde is moving ----
+           is_stationary = abs(depth_m - dplyr::lag(depth_m,default = dplyr::first(depth_m)))<stationary_velocity)
+  return(data)
 
   # Remove Bottom-up data & Hitting the Bottom ----
   max_wholem <- max(data$depthwholem) # Find max whole meter
@@ -150,7 +210,7 @@ TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole")
 
     message(paste("Depth(s):",bad_stop_list, "m had less than 15 measurements (less than 30 sec stop)"))
   }
-
+#
   return(data)
 
   # Averaging Stabilized Data Code ----
@@ -191,4 +251,13 @@ TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole")
 }
 
 xx <-
-TROLL_CSV_cleaner(file_path = 'inst/extdata/Lake_Tiorati_1.csv')
+TROLL_CSV_cleaner(file_path = 'inst/extdata/2025-05-27_LT1.csv')
+
+xx <-
+  TROLL_CSV_cleaner(file_path = 'inst/extdata/2025-05-13_LW1.csv')
+
+xx <-
+  TROLL_CSV_cleaner(file_path = 'inst/extdata/2025-09-16_LT1.csv')
+
+xx <-
+  TROLL_CSV_cleaner(file_path = 'inst/extdata/2025-10-01_LW1.csv')
