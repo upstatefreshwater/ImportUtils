@@ -45,6 +45,7 @@ rename_cols <- function(data){
   }
   if ("Temperature (°C) (1151975)" %in% names(data)) {
     data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
+
   }
 
   # Use gsub to remove undesired (####) in column names
@@ -73,12 +74,13 @@ rename_cols <- function(data){
                     chlorophyll_RFU = "Chlorophyll-a Fluorescence (RFU)", bga_fluorescence_RFU = "BGA-PC Fluorescence (RFU)",
                     pressure_psi = "Pressure (psi)", latitude_deg = "Latitude (°)", longitude_deg = "Longitude (°)")
   ## ERROR: Check that ^^ are all the important parameters that are wanted!! ##
-  data <- data%>%dplyr::select(any_of(param_col))%>%dplyr::rename(any_of(param_rename))
+  data <- data |>
+    dplyr::select(any_of(param_col)) |>
+    dplyr::rename(any_of(param_rename))
 
   #List the Columns in the File for the Record
-  column_list <- paste(colnames(data), collapse = ", ")
-  message(paste("The CSV has Columns:", column_list))
-
+  column_list <- paste(colnames(data))
+  message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
   return(data)
 }
 
