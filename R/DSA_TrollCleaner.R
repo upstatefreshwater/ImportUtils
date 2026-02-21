@@ -10,9 +10,9 @@ read_datafile <- function(path){
         Check that 'Date Time' exists in the raw data.") # Check for Date Time Row Existing
   }
   # Read the CSV starting from the identified line (Date Time)
-  data <- read_csv(path,
-                   skip = start_line - 1,
-                   show_col_types = FALSE)
+  data <- readr::read_csv(path,
+                          skip = start_line - 1,
+                          show_col_types = FALSE)
 
   # Format the Date Time column
   parsed_dates <- lubridate::parse_date_time(
