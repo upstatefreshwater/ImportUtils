@@ -153,3 +153,69 @@ is_sensor_stable(df = try,
                  slope_thresh = 0.001,
                  sd_thresh = 0.001,
                  plot = T)
+
+#____________________________
+#' Full Pipeline: Stationary Detection + Sensor Stabilization
+#'
+#' @param df Data frame containing datetime, depth, and sensor columns
+#' @param sensor_col Name of sensor column to stabilize (e.g., DO, pH)
+#' @param depth_col Name of depth column
+#' @param datetime_col Name of datetime column
+#' @param jiggle_secs Seconds to discard at start of stationary block
+#' @param slope_window_secs Window (seconds) for rolling slope calculation
+#' @param slope_thresh Maximum slope magnitude considered stable
+#' @param ... Additional arguments passed to is_stationary()
+#' @return Data frame with original columns + stable_flag, slope, median_stable
+stabilize_cast <- function(df,
+                           sensor_col,
+                           depth_col = depth_m,
+                           datetime_col = DateTime,
+                           jiggle_secs = 15,
+                           slope_window_secs = 10,
+                           slope_thresh = 0.02,
+                           ...) {
+
+  library(dplyr)
+  library(zoo)
+
+  # 1) Identify stationary blocks using your existing function
+  df_stat <- is_stationary(df,
+                           depth_col = {{depth_col}},
+                           datetime_col = {{datetime_col}},
+                           ...)
+
+  # 2) Compute sampling interval
+  times <- df_stat %>% dplyr::pull({{ datetime_col }})
+  samp_int <- as.numeric(difftime(times[2], times[1], units = "secs"))
+  n_jiggle <- ceiling(jiggle_secs / samp_int)
+  n_slope_window <- ceiling(slope_window_secs / samp_int)
+
+  # 3) Apply slope + stability detection within stationary blocks
+  df_out <- df_stat %>%
+    dplyr::mutate(
+      stationary_obs = is_stationary_status == 999,
+      block_id = cumsum(!stationary_obs)
+    ) %>%
+    dplyr::group_by(block_id) %>%
+    dplyr::mutate(
+      idx_in_block = row_number(),
+      post_jiggle = idx_in_block > n_jiggle,
+
+      slope = zoo::rollapplyr(
+        .data[[sensor_col]],
+        width = n_slope_window,
+        FUN = function(x) coef(lm(x ~ seq_along(x)))[2],
+        fill = NA
+      ),
+
+      stable_flag = post_jiggle & stationary_obs & abs(slope) <= slope_thresh,
+
+      median_stable = ifelse(stable_flag,
+                             median(.data[[sensor_col]][stable_flag], na.rm = TRUE),
+                             NA)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-block_id, -idx_in_block, -post_jiggle)
+
+  return(df_out)
+}

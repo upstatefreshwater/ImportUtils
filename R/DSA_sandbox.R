@@ -28,31 +28,31 @@ try <- is_stationary(dat,drop_cols = T,
                      plot = F)
 
 
-xx <- try %>%
-  select(DateTime,depth_m,temperature_C,DO_mgL,sp_conductivity_uScm)
+xx <- try |>
+  dplyr::select(DateTime,depth_m,temperature_C,DO_mgL,pH_units)
 # xx
 
 # rolling slope function
 roll_slope <- function(x, t) {
-  if (any(is.na(x)) || any(is.na(t))) return(NA_real_)
-  coef(stats::lm(x ~ t))[2]
+  if (any(is.na(x)) || any(is.na(t))) return(NA_real_) # returns NA if NA exists in data (sensor or time)
+  coef(stats::lm(x ~ t))[2] # Extract slope of the linear regression
 }
 
 junk <-
-xx %>%
+xx |>
   dplyr::mutate(
     numdate = as.numeric(DateTime),
     param_sd = zoo::rollapplyr(
-      sp_conductivity_uScm,
-      width = 5,
+      pH_units,
+      width = 15,
       FUN = stats::sd,
       na.rm = TRUE,
       fill = NA_real_
     ),
     param_slope = zoo::rollapplyr(
       align = 'right',
-      data = cbind(numdate, xx$sp_conductivity_uScm),
-      width = 10,
+      data = cbind(numdate, xx$pH_units),
+      width = 15,
       by.column = FALSE,
       FUN = function(mat) {
         # print(mat)
@@ -68,11 +68,20 @@ xx %>%
     )
   )
 
+#** Go to AI_broken for a skeleton of the implementation
+#* 1) Identify stationary blocks
+#* 2) Toss 15s of data (may increase, or make adjustable), the "jiggle zone"
+#* 3) calculate slope across "stationary" observations
+#*    a) Could check the overall (for drift)
+#*    b) Use small window slopes (8-10s) for determining "stable"
+#* 4) Take median of the stable datapoints
+
+# library(ggplot2)
 ggplot(junk,
        aes(x=DateTime)) +
   geom_point(aes(y=param_slope,color = 'slope')) +
-  geom_point(aes(y=scale(sp_conductivity_uScm),color = 'temp')) +
-  coord_cartesian(ylim = c(-1,1)) +
+  geom_point(aes(y=scale(pH_units),color = 'temp')) +
+  coord_cartesian(ylim = c(-1.5,1.5)) +
   geom_hline(yintercept = 0, lty=2) +
   geom_hline(yintercept = c(-0.02,0.02),
              col = 'firebrick',lty = 2)

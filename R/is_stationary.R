@@ -101,10 +101,6 @@ is_stationary <- function(df,
     ) |>
     dplyr::ungroup()
 
-  if (drop_cols) {
-    out <- dplyr::select(out, -c(depth_sd, is_stationary_initial, group_id, block_duration))
-  }
-
   if(plot){
     # 1. Get all unique levels
     levels_list <- as.character(unique(out$is_stationary_status))
@@ -154,5 +150,10 @@ is_stationary <- function(df,
    print(patchwork::wrap_plots(p1, p2, ncol = 1))
 
   }
+
+  if (drop_cols) {
+    out <- dplyr::select(out, -c(depth_sd, is_stationary_initial, group_id, block_duration))
+  }
+
   return(out)
 }
