@@ -186,9 +186,9 @@ stabilize_cast <- function(df,
 
   # 2) Compute sampling interval
   times <- df_stat %>% dplyr::pull({{ datetime_col }})
-  samp_int <- as.numeric(difftime(times[2], times[1], units = "secs"))
-  n_jiggle <- ceiling(jiggle_secs / samp_int)
-  n_slope_window <- ceiling(slope_window_secs / samp_int)
+  samp_int <- as.numeric(difftime(times[2], times[1], units = "secs")) # calculate the sampling interval
+  n_jiggle <- ceiling(jiggle_secs / samp_int)                          # number of observations to throw out for "jiggle period"
+  n_slope_window <- ceiling(slope_window_secs / samp_int)              # this is the "width" argument of rollapply
 
   # 3) Apply slope + stability detection within stationary blocks
   df_out <- df_stat %>%
@@ -199,20 +199,26 @@ stabilize_cast <- function(df,
     dplyr::group_by(block_id) %>%
     dplyr::mutate(
       idx_in_block = row_number(),
-      post_jiggle = idx_in_block > n_jiggle,
+      post_jiggle = idx_in_block > n_jiggle, # toss out the first period after sonde stops moving
 
-      slope = zoo::rollapplyr(
+      slope = zoo::rollapplyr(                                          # apply "right" so it's backwards looking for slop calc
         .data[[sensor_col]],
         width = n_slope_window,
-        FUN = function(x) coef(lm(x ~ seq_along(x)))[2],
+        FUN = function(x) coef(lm(x ~ seq_along(x)))[2],                # Extract slope of lm()
         fill = NA
       ),
 
-      stable_flag = post_jiggle & stationary_obs & abs(slope) <= slope_thresh,
+      stable_flag = post_jiggle & stationary_obs & abs(slope) <= slope_thresh, # Flag TRUE if stationary after jiggle and below slope threshold
 
       median_stable = ifelse(stable_flag,
                              median(.data[[sensor_col]][stable_flag], na.rm = TRUE),
-                             NA)
+                             NA),
+      slope_full_stabl_block = ifelse(stable_flag,
+                                      coef(lm(.data[[sensor_col]] ~ idx_in_block))[2],
+                                      NA),
+      sd_full_stabl_block = ifelse(stable_flag,
+                                   sd(.data[[sensor_col]],na.rm=TRUE),
+                                   NA)
     ) %>%
     dplyr::ungroup() %>%
     dplyr::select(-block_id, -idx_in_block, -post_jiggle)
