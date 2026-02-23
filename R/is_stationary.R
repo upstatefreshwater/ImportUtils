@@ -51,6 +51,7 @@ is_stationary <- function(df,
                           sd_thresh = 0.05,
                           window = 7,
                           min_obs = 15,
+                          # depth_int= 1,
                           drop_cols = TRUE,
                           plot = FALSE) {
 
@@ -75,28 +76,23 @@ is_stationary <- function(df,
 
   out <- df |>
     dplyr::mutate(
-      depth_sd = zoo::rollapplyr({{ depth_col }},
+      depth_sd = zoo::rollapplyr({{ depth_col }},                                # 'right' means from the obs. look backwards n = window
                                  width = window,
-                                 FUN = stats::sd,
+                                 FUN = stats::sd,                                # Calculate the rolling SD of the window
                                  na.rm = TRUE,
                                  fill = NA),
-      # Set the initial stationary without looking at the nobs of stable data
       is_stationary_initial = dplyr::if_else(
         is.na(depth_sd),
         FALSE,
-        depth_sd < sd_thresh),
-      # counts the number of obs in each stable period
-      group_id = dplyr::consecutive_id(.data$is_stationary_initial)) |>
+        depth_sd < sd_thresh),                                                   # Sets is_stationary_initial based on only SD
+      group_id = dplyr::consecutive_id(.data$is_stationary_initial)) |>          # assigns a unique id based on each time is_stationary_initial changes
     dplyr::group_by(.data$group_id) |>
     dplyr::mutate(
-      # Using your exact name: block_duration
-      block_duration = dplyr::n(),
-
-      # Final logic - fixed the variable name mismatch
+      block_duration = dplyr::n(),                                               # counts the number of obs in each stable period (works by group)
       is_stationary_status = dplyr::case_when(
-        .data$is_stationary_initial & .data$block_duration >= min_obs ~ 999,
-        .data$is_stationary_initial & .data$block_duration < min_obs ~ .data$block_duration * samp_int,
-        TRUE ~ 0
+        .data$is_stationary_initial & .data$block_duration >= min_obs ~ 999,     # If there are enough observations after stationary detected, mark as stationary
+        .data$is_stationary_initial & .data$block_duration < min_obs ~ .data$block_duration * samp_int, # For fewer than the minimum # of obs, return the number of seconds sonde was stationary
+        TRUE ~ 0                                                                 # Mark moving as 0
       )
     ) |>
     dplyr::ungroup()
@@ -151,9 +147,10 @@ is_stationary <- function(df,
 
   }
 
-  if (drop_cols) {
+  if (drop_cols) {                                                                # Remove intermediate columns
     out <- dplyr::select(out, -c(depth_sd, is_stationary_initial, group_id, block_duration))
   }
 
   return(out)
 }
+

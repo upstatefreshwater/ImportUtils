@@ -21,8 +21,7 @@ dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv')
 # dat <- read_datafile('inst/extdata/2025-10-01_LW1.csv')
 
 
-dat <- rename_cols(dat) |>
-  dplyr::mutate(depthwholem = (janitor::round_half_up(depth_m)))
+dat <- rename_cols(dat)
 
 try <- is_stationary(dat,drop_cols = T,
                      plot = F)
@@ -127,3 +126,12 @@ plotstuff(df = dat,'DO_mgL')
 plotstuff(df = dat, 'depth_m')
 
 
+# Put it together ----
+#__________________________________
+dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') %>%
+  rename_cols() %>%
+  strip_meta() %>%
+  is_stationary()
+
+dat <- is_stationary(dat,
+                     drop_cols = F)

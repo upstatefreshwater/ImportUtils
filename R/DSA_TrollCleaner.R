@@ -1,3 +1,4 @@
+# read_datafile ----
 read_datafile <- function(path){
 
   # Read the file to identify the lines
@@ -38,6 +39,7 @@ read_datafile <- function(path){
   return(data)
 }
 
+# rename_cols ----
 rename_cols <- function(data){
   # name second temperature column - TROLL COM temperature - if included in the spreadsheet
   if ("Temperature (°C) (1153542)" %in% names(data)) {
@@ -84,6 +86,7 @@ rename_cols <- function(data){
   return(data)
 }
 
+# remove_bottomup_hitbottom ----
 remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity=0.1,
                                       meter_halfm = "whole"){
   data <- data%>%dplyr::mutate(depth_halfm = (round(depth_m/0.5)*0.5),
@@ -154,4 +157,56 @@ remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity
 
 
   return(data)
+}
+
+# depth_rounder ----
+depth_rounder <- function(df,
+                      depth_col = depth_m,
+                      interval = 1,
+                      tolerance = 0.2){
+  # Internal helper to extract decimal place
+  decimalplaces <- function(x) {
+    if (abs(x - round(x)) > .Machine$double.eps^0.5) { # work around floating point errors due to computers use of binary to store numbers
+      nchar(strsplit(sub('0+$', '', as.character(x)), ".", fixed = TRUE)[[1]][[2]])
+    } else {
+      return(0)
+    }
+  }
+
+  tol_dec <- decimalplaces(tolerance)
+  if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,'is unrealistically small.'))
+
+  int_dec <- decimalplaces(interval)
+  if(int_dec>2) stop(paste0('Depth interval: ',interval,'is unrealistically small.'))
+
+  data_out <- df %>%
+    mutate(obs_depth = round({{depth_col}},tol_dec),
+           flag_depth = case_when(
+             obs_depth < 0.5 ~ '',
+             abs(obs_depth - round(obs_depth)) < tolerance ~ 'flag',
+             TRUE ~ ''),
+           obs_depth = round(obs_depth,int_dec)) # overwrite depth to the target interval
+
+  return(data_out)
+}
+
+
+
+# strip_meta -----
+strip_meta <- function(df) {
+  # 1. Remove the specific metadata columns
+  data_out <- df %>%
+    dplyr::select(-any_of(c('pressure_psi',
+                            'latitude_deg',
+                            'longitude_deg')))
+
+  # 2. Check if 'Marked' exists and if it consists ONLY of NAs
+  if ('Marked' %in% names(data_out)) {
+    if (all(is.na(data_out$Marked))) {
+      data_out <- data_out %>% dplyr::select(-Marked)
+    }
+  }
+
+  # 3. Crucial: Return the data frame
+  return(data_out)
 }
