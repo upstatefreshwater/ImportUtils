@@ -131,33 +131,36 @@ plotstuff(df = dat, 'depth_m')
 dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
   rename_cols() |>
   strip_meta() |>
-  depth_rounder() |>
-  is_stationary()
+  depth_rounder() |>                 # Adds 'obs_depth' and 'flag_depth' columns
+  is_stationary()                    # Adds 'is_stationary_status' column
 
-try <- stabilize_cast(dat,
-                      sensor_col = 'DO_mgL',
-                      slope_thresh = 0.02)
+try <- stabilize_cast(dat)
 
 # Exploratory plots ----
 library(tidyverse)
 
 ggplot(data = try) +
   geom_point(aes(x = DO_mgL,y = depth_m, color = 'Raw')) +
-  geom_point(aes(x = median_stable, y = obs_depth, color = 'Median')) +
+  geom_point(aes(x = temp_median, y = obs_depth, color = 'Median')) +
   scale_y_reverse()
 
 ggplot(data = try) +
-  geom_point(aes(x = DateTime, y = temperature_C-15, color = 'Raw')) + # temperature_C-15 # depth_m
-  geom_point(aes(x = DateTime, y = median_stable, color = 'Median')) +
+  geom_point(aes(x = DateTime, y = temperature_C, color = 'Raw')) + # temperature_C-15 # depth_m
+  geom_point(aes(x = DateTime, y = temp_median, color = 'Median')) +
   geom_vline(xintercept = c(ymd_hms('2025/09/16 15:17:55'),
                             ymd_hms('2025/09/16 15:19:23'))) + # Depth jump from 6 to 7 m
   annotate('text', label = '6 -> 7m',
            x = ymd_hms('2025/09/16 15:17:55'),
-           y = 7,
+           y = 20,
            hjust = -0.1,
            angle = 0) +
   annotate('text', label = '7 -> 8m',
            x = ymd_hms('2025/09/16 15:19:23'),
-           y = 4,
+           y = 22,
            hjust = -0.1,
            angle = 0)
+
+  coord_cartesian(ylim = c(0,0.05))
+
+coord_cartesian(xlim = c(ymd_hms('2025/09/16 15:19:23'),
+                           ymd_hms('2025/09/16 15:21:23')))
