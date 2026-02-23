@@ -89,7 +89,7 @@ rename_cols <- function(data){
 # remove_bottomup_hitbottom ----
 remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity=0.1,
                                       meter_halfm = "whole"){
-  data <- data%>%dplyr::mutate(depth_halfm = (round(depth_m/0.5)*0.5),
+  data <- data|>dplyr::mutate(depth_halfm = (round(depth_m/0.5)*0.5),
                                depthwholem = (janitor::round_half_up(depth_m)),
                                # Determine When the Sonde is Moving
                                is_stationary = abs(depth_m - dplyr::lag(depth_m,default = dplyr::first(depth_m)))<stationary_velocity,
@@ -133,19 +133,19 @@ remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity
   if("turbidity_NTU" %in% names(data)){
     if(meter_halfm == "half" & any(data$turbidity_NTU > turb_value, na.rm = TRUE)){
       # Dataset with only the high turbidity values (hit the bottom - level high)
-      hit_bottom <- data%>%dplyr::filter(turbidity_NTU >= turb_value) # turb_value is = 50 unless changed
+      hit_bottom <- data|>dplyr::filter(turbidity_NTU >= turb_value) # turb_value is = 50 unless changed
       hit_bottom_depth <- min(hit_bottom$depth_halfm) # Lowest Depth of Very HIGH Turbidity
       # Remove all the very high turbidity
-      data <- data%>%dplyr::filter(depth_halfm < hit_bottom_depth)
+      data <- data|>dplyr::filter(depth_halfm < hit_bottom_depth)
 
       message(paste("Data Removed Below",hit_bottom_depth, "m"))}
 
     if(meter_halfm == "whole" & any(data$turbidity_NTU > turb_value, na.rm = TRUE)){
       # Dataset with only the high turbidity values (hit the bottom - level high)
-      hit_bottom <- data%>%filter(turbidity_NTU >= turb_value) # turb_value is = 50 unless changed
+      hit_bottom <- data|>filter(turbidity_NTU >= turb_value) # turb_value is = 50 unless changed
       hit_bottom_depth <- min(hit_bottom$depthwholem) # Lowest Depth of Very HIGH Turbidity
       # Remove all the very high turbidity
-      data <- data%>%filter(depthwholem < hit_bottom_depth)
+      data <- data|>filter(depthwholem < hit_bottom_depth)
 
       message(paste("Data Removed Below",hit_bottom_depth, "m for Hitting the Bottom"))}
 
@@ -179,7 +179,7 @@ depth_rounder <- function(df,
   int_dec <- decimalplaces(interval)
   if(int_dec>2) stop(paste0('Depth interval: ',interval,'is unrealistically small.'))
 
-  data_out <- df %>%
+  data_out <- df |>
     mutate(obs_depth = round({{depth_col}},tol_dec),
            flag_depth = case_when(
              obs_depth < 0.5 ~ '',
@@ -195,7 +195,7 @@ depth_rounder <- function(df,
 # strip_meta -----
 strip_meta <- function(df) {
   # 1. Remove the specific metadata columns
-  data_out <- df %>%
+  data_out <- df |>
     dplyr::select(-any_of(c('pressure_psi',
                             'latitude_deg',
                             'longitude_deg')))
@@ -203,7 +203,7 @@ strip_meta <- function(df) {
   # 2. Check if 'Marked' exists and if it consists ONLY of NAs
   if ('Marked' %in% names(data_out)) {
     if (all(is.na(data_out$Marked))) {
-      data_out <- data_out %>% dplyr::select(-Marked)
+      data_out <- data_out |> dplyr::select(-Marked)
     }
   }
 
