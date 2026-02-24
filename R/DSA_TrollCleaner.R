@@ -180,12 +180,12 @@ depth_rounder <- function(df,
   if(int_dec>2) stop(paste0('Depth interval: ',interval,'is unrealistically small.'))
 
   data_out <- df |>
-    mutate(obs_depth = round({{depth_col}},tol_dec),
-           flag_depth = case_when(
-             obs_depth < 0.5 ~ '',
-             abs(obs_depth - round(obs_depth)) < tolerance ~ 'flag',
-             TRUE ~ ''),
-           obs_depth = round(obs_depth,int_dec)) # overwrite depth to the target interval
+    dplyr::mutate(obs_depth = round({{depth_col}},tol_dec),
+                  flag_depth = dplyr::case_when(
+                    obs_depth < 0.5 ~ '',
+                    abs(obs_depth - round(obs_depth)) < tolerance ~ 'flag',
+                    TRUE ~ ''),
+                  obs_depth = round(obs_depth,int_dec)) # overwrite depth to the target interval
 
   return(data_out)
 }
