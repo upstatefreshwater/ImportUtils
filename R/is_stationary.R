@@ -23,11 +23,11 @@
 #' `window` (# of observations). Observations with rolling SD below `sd_thresh`
 #' are initially classified as stable.
 #'
-#' Consecutive stable observations are grouped into blocks. If a block contains
-#' at least `min_obs` observations, the block is classified as stationary and
+#' Consecutive stable observations (below `sd_thresh`) are grouped into blocks. If a block contains
+#' at least `stationary_secs` of observations, the block is classified as stationary and
 #' assigned `is_stationary_status = 999`.
 #'
-#' Stable blocks shorter than `min_obs` are assigned a numeric value equal to
+#' Stable blocks (< `sd_thresh`) shorter than `stationary_secs` are assigned a numeric value equal to
 #' their duration in seconds (`block_duration × sampling interval`). `Sampling interval`
 #' is calculated internally as the difference of the first two `datetime_col` values.
 #'

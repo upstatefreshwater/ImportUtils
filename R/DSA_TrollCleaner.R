@@ -192,7 +192,7 @@ depth_rounder <- function(df,
         round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag', # This does the work
         TRUE ~ ''
       ),
-      obs_depth2 = round(obs_depth / interval) * interval
+      obs_depth = round(obs_depth / interval) * interval
     ) |>
     dplyr::select(-nearest_interval)
   }

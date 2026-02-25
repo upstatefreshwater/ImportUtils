@@ -1,9 +1,12 @@
 # Put it together ----
 #__________________________________
 median_secs <- 30
+shake_time <- 15             # aka "jiggle_secs"
 target_depths <- seq(0,8,1)
+stationary_time_thresh <- 15 # Consecutive seconds without sonde movmement to be considered "stationary"
 
-target_interval <- unique(na.omit(diff(target_depths)))
+target_interval <- unique(na.omit(signif(diff(target_depths))))
+
 if(length(target_interval)!=1){
   warning('Provided target depths are not of a regular interval.')
   target_interval <- NULL
@@ -12,19 +15,22 @@ if(length(target_interval)!=1){
 dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
   rename_cols() |>                   # Makes pretty and standardized column names
   strip_meta() |>                    # removes unnessary columns
-  depth_rounder(interval = ,
+  depth_rounder(interval = target_interval,
                 tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
-  is_stationary()                    # Adds 'is_stationary_status' column
-
+  is_stationary(stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
+                sampling_int = target_interval,
+                drop_cols = F,
+                plot = TRUE)
 # try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
 try <- troll_run_stats(dat)
 
 if(!all(target_depths %in% try$final_depths)) {
-  stop('')
+  stop('The final depths extracted from raw data (rounded to the interval between target depths) do not match the target depths.\n\nCheck the specification of target depths and the tolerance used to round raw depth data.\n\nOften this is caused by too strict of a depth tolerance relative to imperfect field data.')
 }
 
 dat2 <- dat |>
-  remove_jiggle(sampling_int = try$samp_int)
+  remove_jiggle(sampling_int = try$samp_int,
+                jiggle_secs = shake_time)
 
 
 
