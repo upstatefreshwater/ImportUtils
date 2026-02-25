@@ -39,9 +39,12 @@ read_datafile <- function(path){
 }
 
 rename_cols <- function(data){
-  # name second temperature column - internal temperature - if included in the spreadsheet
-  if ("Temperature (°C) (1153542)" %in% names(data)) {#ERROR, need to check numeric code for other sondes is these were all Sondra
-    data <- data %>% dplyr::rename(Internal_temperature_C = `Temperature (°C) (1153542)`)
+  # name second temperature column - TROLL COM temperature - if included in the spreadsheet
+  if ("Temperature (°C) (1153542)" %in% names(data)) {
+    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
+  }
+  if ("Temperature (°C) (1151975)" %in% names(data)) {
+    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
   }
 
   # Use gsub to remove undesired (####) in column names

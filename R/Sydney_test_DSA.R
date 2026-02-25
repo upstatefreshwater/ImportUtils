@@ -207,9 +207,12 @@ TROLL_CSV_cleaner <- function(file_path, turb_value = 50, meter_halfm = "whole",
   # data <- read_csv(file_path, skip = start_line - 1)
 
   # Rename Columns ----
-  # name second temperature column - internal temperature - if included in the spreadsheet
+  # name second temperature column - TROLL COM temperature - if included in the spreadsheet
   if ("Temperature (°C) (1153542)" %in% names(data)) {
-    data <- data %>% rename(Internal_temperature_C = `Temperature (°C) (1153542)`)
+    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
+  }
+  if ("Temperature (°C) (1151975)" %in% names(data)) {
+    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
   }
 
   # Use gsub to remove undesired (####) in column names
@@ -380,3 +383,4 @@ xx <-
 
 xx <-
   TROLL_CSV_cleaner(file_path = 'inst/extdata/2025-10-01_LW1.csv')
+
