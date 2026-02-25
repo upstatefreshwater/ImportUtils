@@ -36,7 +36,9 @@ troll_run_stats <- function(df,
   samp_int <-  as.numeric(median(diff(times), na.rm = TRUE), units = 'secs')      # Calculate the sampling interval
 
   if (!length(unique(na.omit(diff(times)))) == 1) {
-    warning('Inconsistent sampling intervals detected.')
+    warning(paste0('Inconsistent sampling intervals detected.\n',
+                   unique(na.omit(diff(times)))))
+
   }
 
   # Calculate cast length ----

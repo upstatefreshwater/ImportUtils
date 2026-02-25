@@ -36,7 +36,7 @@ read_datafile <- function(path){
     warning('No seconds were included in the raw data, check the data file formatting for "Date Time" column!')
   }
 
-  return(data)
+  return(data )
 }
 
 # rename_cols ----
@@ -85,7 +85,9 @@ rename_cols <- function(data,
   column_list <- paste(colnames(data))
   message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
   }
-  return(data)
+
+  return(data %>%
+           dplyr::arrange(DateTime))
 }
 
 # remove_bottomup_hitbottom ----
