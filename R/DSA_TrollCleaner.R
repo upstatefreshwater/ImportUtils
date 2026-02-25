@@ -197,3 +197,22 @@ depth_rounder <- function(df,
 
   return(data_out)
 }
+
+# strip_meta -----
+strip_meta <- function(df) {
+  # 1. Remove the specific metadata columns
+  data_out <- df |>
+    dplyr::select(-any_of(c('pressure_psi',
+                            'latitude_deg',
+                            'longitude_deg')))
+
+  # 2. Check if 'Marked' exists and if it consists ONLY of NAs
+  if ('Marked' %in% names(data_out)) {
+    if (all(is.na(data_out$Marked))) {
+      data_out <- data_out |> dplyr::select(-Marked)
+    }
+  }
+
+  # 3. Crucial: Return the data frame
+  return(data_out)
+}

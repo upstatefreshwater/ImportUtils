@@ -1,3 +1,22 @@
+# Put it together ----
+#__________________________________
+median_secs <- 30
+target_depths <- seq(0,8,1)
+
+dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
+  rename_cols() |>                   # Makes pretty and standardized column names
+  strip_meta() |>                    # removes unnessary columns
+  depth_rounder(tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
+  is_stationary()                    # Adds 'is_stationary_status' column
+
+# try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
+try <- troll_run_stats(dat)
+
+dat2 <- dat |>
+  remove_jiggle(sampling_int = try$samp_int)
+
+
+
 data_final <- data|> group_by(depthwholem)|>arrange(id)|>
   mutate( roll_sd = rollapply(DO_mgL, 5, sd, fill = NA),
           roll_mean = rollapply(DO_mgL, 5, mean, fill = NA),
@@ -126,22 +145,7 @@ plotstuff(df = dat,'DO_mgL')
 plotstuff(df = dat, 'depth_m')
 
 
-# Put it together ----
-#__________________________________
-median_secs <- 30
-target_depths <- seq(0,8,1)
 
-dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  rename_cols() |>                   # Makes pretty and standardized column names
-  strip_meta() |>                    # removes unnessary columns
-  depth_rounder(tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
-  is_stationary()                    # Adds 'is_stationary_status' column
-
-# try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
-try <- troll_run_stats(dat)
-
-dat2 <- dat |>
-  remove_jiggle(sampling_int = try$samp_int)
 # Exploratory plots ----
 library(tidyverse)
 
