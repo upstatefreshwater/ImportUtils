@@ -43,10 +43,10 @@ read_datafile <- function(path){
 rename_cols <- function(data){
   # name second temperature column - TROLL COM temperature - if included in the spreadsheet
   if ("Temperature (°C) (1153542)" %in% names(data)) {
-    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
+    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
   }
   if ("Temperature (°C) (1151975)" %in% names(data)) {
-    data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
+    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
   }
 
   # Use gsub to remove undesired (####) in column names
