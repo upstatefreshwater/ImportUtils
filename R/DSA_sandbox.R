@@ -4,6 +4,8 @@ median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
 target_depths <- seq(0,8,1)
 stationary_time_thresh <- 15 # Consecutive seconds without sonde movmement to be considered "stationary"
+rolling_range_secs <- 10     # Window size used to compile rolling ranges
+depth_plot = FALSE
 
 target_interval <- unique(na.omit(signif(diff(target_depths))))
 
@@ -20,16 +22,19 @@ dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
   is_stationary(stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
                 sampling_int = target_interval,
                 drop_cols = F,
-                plot = TRUE)
+                plot = depth_plot)
 # try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
 try <- troll_run_stats(dat)
+
+# Pull out the sampling interval
+sampling_interval_calculated <- try$samp_int
 
 if(!all(target_depths %in% try$final_depths)) {
   stop('The final depths extracted from raw data (rounded to the interval between target depths) do not match the target depths.\n\nCheck the specification of target depths and the tolerance used to round raw depth data.\n\nOften this is caused by too strict of a depth tolerance relative to imperfect field data.')
 }
 
 dat2 <- dat |>
-  remove_jiggle(sampling_int = try$samp_int,
+  remove_jiggle(sampling_int = sampling_interval_calculated,
                 jiggle_secs = shake_time)
 
 # Check for number of obs to calculate median
@@ -37,7 +42,7 @@ check_dat <- dat2 |>
   dplyr::filter(post_jiggle==TRUE) |>
   dplyr::group_by(obs_depth) |>
   dplyr::summarise(n_obs_median = unique(n_obs_post_jig)) |>
-  dplyr::mutate(times_avail = n_obs_median * try$samp_int,
+  dplyr::mutate(times_avail = n_obs_median * sampling_interval_calculated,
                 flag_nobs_toofew = ifelse(times_avail < median_secs,
                                           times_avail,
                                           FALSE)) |>
@@ -56,13 +61,14 @@ if(any(check_dat$flag_nobs_toofew == 0)) {
       "  • ", bad_depths, " m for ", bad_times, " s",
       collapse = "\n"
     ),
-    "\n\nDid not meet the minimum stationary duration criteria of ",median_secs," seconds."
+    "\n\nDid not meet the minimum stationary duration criteria of ",median_secs," seconds\nfollowing the 'jiggle' period"
   )
 
   warning(msg, call. = FALSE)
- }
-check_dat
+}
 
+dat3 <- dat2 |>
+  troll_rollRange(sampling_int = sampling_interval_calculated)
 
 
 data_final <- data|> group_by(depthwholem)|>arrange(id)|>
