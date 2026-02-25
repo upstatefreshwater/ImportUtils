@@ -47,7 +47,6 @@ rename_cols <- function(data){
   }
   if ("Temperature (°C) (1151975)" %in% names(data)) {
     data <- data %>% rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
-
   }
 
   # Use gsub to remove undesired (####) in column names
@@ -81,8 +80,10 @@ rename_cols <- function(data){
     dplyr::rename(any_of(param_rename))
 
   #List the Columns in the File for the Record
+  if(print_colnames){
   column_list <- paste(colnames(data))
   message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
+  }
   return(data)
 }
 
@@ -173,7 +174,7 @@ depth_rounder <- function(df,
     }
   }
 
-  tol_dec <- decimalplaces(tolerance)
+  tol_dec <- decimalplaces(tolerance) # number of decimal places to
   if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,'is unrealistically small.'))
 
   int_dec <- decimalplaces(interval)
@@ -202,7 +203,7 @@ strip_meta <- function(df) {
 
   # 2. Check if 'Marked' exists and if it consists ONLY of NAs
   if ('Marked' %in% names(data_out)) {
-    if (all(is.na(data_out$Marked))) {
+    if (any(is.na(data_out$Marked))) {
       data_out <- data_out |> dplyr::select(-Marked)
     }
   }

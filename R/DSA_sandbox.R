@@ -129,13 +129,16 @@ plotstuff(df = dat, 'depth_m')
 # Put it together ----
 #__________________________________
 dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  rename_cols() |>
-  strip_meta() |>
+  rename_cols() |>                   # Makes pretty and standardized column names
+  strip_meta() |>                    # removes unnessary columns
   depth_rounder() |>                 # Adds 'obs_depth' and 'flag_depth' columns
   is_stationary()                    # Adds 'is_stationary_status' column
 
-try <- stabilize_cast(dat)
+# try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
+try <- troll_run_stats(dat)
 
+dat2 <- dat |>
+  remove_jiggle(sampling_int = try$samp_int)
 # Exploratory plots ----
 library(tidyverse)
 

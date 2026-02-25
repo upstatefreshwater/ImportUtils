@@ -50,8 +50,8 @@ is_stationary <- function(df,
                           datetime_col = DateTime,
                           sd_thresh = 0.05,
                           window = 7,
-                          min_obs = 15,
-                          # depth_int= 1,
+                          stationary_secs = 30,
+                          sampling_int = 0,
                           drop_cols = TRUE,
                           plot = FALSE) {
 
@@ -59,20 +59,27 @@ is_stationary <- function(df,
     stop("Data frame must contain at least two observations.")
   }
 
-  # Extract datetime vector safely for interval calculation
-  times <- df |> dplyr::pull({{ datetime_col }})
+  # If sampling interval is not provided, calculate it
+  if(sampling_int==0){
+    # Extract datetime vector safely for interval calculation
+    times <- df |> dplyr::pull({{ datetime_col }})
 
-  if (any(is.na(times[1:2]))) {
-    stop("First two datetime values cannot be NA.")
+    samp_int <-  as.numeric(median(diff(times), na.rm = TRUE),units = 'secs')   # Calculate the sampling interval
+
+    if(!length(unique(diff(times),na.rm = T))==1){
+      warning('Inconsistent sampling intervals detected.')
+    }
+
+    if(samp_int > 30){
+      message('Sampling interval > 30s detected. Sonde assumed to be fixed in position.')
+      return(df |> dplyr::mutate(is_stationary_status = 999))
+    }
+  } else{
+    samp_int <- sampling_int
   }
 
-  # Calculate interval in seconds
-  samp_int <- as.numeric(difftime(times[2], times[1], units = "secs"))
-
-  if(samp_int > 30){
-    message('Sampling interval > 30s detected. Sonde assumed to be fixed in position.')
-    return(df |> dplyr::mutate(is_stationary_status = 999))
-  }
+  # Set the number of obs equal to the min reqd_stationary_obs
+  min_obs <<- ceiling(stationary_secs / samp_int)
 
   out <- df |>
     dplyr::mutate(
@@ -91,7 +98,8 @@ is_stationary <- function(df,
       block_duration = dplyr::n(),                                               # counts the number of obs in each stable period (works by group)
       is_stationary_status = dplyr::case_when(
         .data$is_stationary_initial & .data$block_duration >= min_obs ~ 999,     # If there are enough observations after stationary detected, mark as stationary
-        .data$is_stationary_initial & .data$block_duration < min_obs ~ .data$block_duration * samp_int, # For fewer than the minimum # of obs, return the number of seconds sonde was stationary
+        .data$is_stationary_initial &
+          .data$block_duration < min_obs ~ .data$block_duration * samp_int,      # For fewer than the minimum # of obs, return the number of seconds sonde was stationary
         TRUE ~ 0                                                                 # Mark moving as 0
       )
     ) |>
