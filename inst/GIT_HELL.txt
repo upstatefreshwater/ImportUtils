@@ -1,0 +1,29 @@
+# start work
+git checkout dsa/TrollStability
+git add / commit frequently
+git push origin dsa/TrollStability
+
+# integrate main only when necessary
+git fetch origin
+git merge origin/main   # safe and easy
+# or
+git rebase origin/main  # clean history, requires force push
+
+# push branch after resolving conflicts
+git push --force-with-lease origin dsa/TrollStability
+
+
+supposedly can use this to bring in updates from remote/main :
+
+git fetch origin && \
+git checkout main && git pull origin main && \
+git checkout dsa/TrollStability && \
+git merge main
+
+the rebase version:
+
+git fetch origin && \
+git checkout main && git pull origin main && \
+git checkout dsa/TrollStability && \
+git rebase main && \
+git push --force-with-lease origin dsa/TrollStability
