@@ -40,7 +40,8 @@ read_datafile <- function(path){
 }
 
 # rename_cols ----
-rename_cols <- function(data){
+rename_cols <- function(data,
+                        print_colnames = FALSE){
   # name second temperature column - TROLL COM temperature - if included in the spreadsheet
   if ("Temperature (°C) (1153542)" %in% names(data)) {
     data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
