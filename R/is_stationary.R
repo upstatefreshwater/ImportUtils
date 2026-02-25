@@ -79,7 +79,7 @@ is_stationary <- function(df,
   }
 
   # Set the number of obs equal to the min reqd_stationary_obs
-  min_obs <<- ceiling(stationary_secs / samp_int)
+  min_obs <- ceiling(stationary_secs / samp_int)
 
   out <- df |>
     dplyr::mutate(

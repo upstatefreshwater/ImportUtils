@@ -23,7 +23,9 @@ remove_jiggle <- function(df,
     dplyr::group_by(stationary_block_id) |>
     dplyr::mutate(
       stationary_block_index = dplyr::row_number(),                    # integer index restarts on each stable block because of data grouping
-      post_jiggle = stationary_block_index > n_jiggle,                 # flag the "jiggle_secs" aka the period after sonde stops moving when the field tech is supposed to slightly move sonde
+      post_jiggle = stationary_block_index > n_jiggle,                 # flag the "jiggle_secs" aka the period after sonde stops moving when the field tech is supposed to slightly move sonde\
+
+      n_obs_post_jig = dplyr::n()                                      # Number of observation in each stable block
     ) |>
     dplyr::ungroup()
 

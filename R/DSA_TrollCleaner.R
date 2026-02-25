@@ -162,52 +162,38 @@ remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity
 
 # depth_rounder ----
 depth_rounder <- function(df,
-                      depth_col = depth_m,
-                      interval = 1,
-                      tolerance = 0.2){
-  # Internal helper to extract decimal place
+                          depth_col = depth_m,
+                          interval = 1,
+                          tolerance = 0.2){
+
+  # Internal helper to extract decimal places
   decimalplaces <- function(x) {
-    if (abs(x - round(x)) > .Machine$double.eps^0.5) { # work around floating point errors due to computers use of binary to store numbers
+    if (abs(x - round(x)) > .Machine$double.eps^0.5) {
       nchar(strsplit(sub('0+$', '', as.character(x)), ".", fixed = TRUE)[[1]][[2]])
     } else {
       return(0)
     }
   }
 
-  tol_dec <- decimalplaces(tolerance) # number of decimal places to
-  if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,'is unrealistically small.'))
+  tol_dec <- decimalplaces(tolerance)
+  if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,' is unrealistically small.'))
 
   int_dec <- decimalplaces(interval)
-  if(int_dec>2) stop(paste0('Depth interval: ',interval,'is unrealistically small.'))
+  if(int_dec>2) stop(paste0('Depth interval: ',interval,' is unrealistically small.'))
 
   data_out <- df |>
-    dplyr::mutate(obs_depth = round({{depth_col}},tol_dec),
-                  flag_depth = dplyr::case_when(
-                    obs_depth < 0.5 ~ '',
-                    abs(obs_depth - round(obs_depth)) < tolerance ~ 'flag',
-                    TRUE ~ ''),
-                  obs_depth = round(obs_depth,int_dec)) # overwrite depth to the target interval
+    dplyr::mutate(
+      obs_depth = round({{depth_col}}, tol_dec),
+      nearest_interval = round(obs_depth / interval) * interval,
+      # Round the difference to 6 decimals to avoid floating-point issues
+      flag_depth = dplyr::case_when(
+        obs_depth < 0.5 ~ '',
+        round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag',
+        TRUE ~ ''
+      ),
+      obs_depth2 = round(obs_depth / interval) * interval
+    ) |>
+    dplyr::select(-nearest_interval)
 
-  return(data_out)
-}
-
-
-
-# strip_meta -----
-strip_meta <- function(df) {
-  # 1. Remove the specific metadata columns
-  data_out <- df |>
-    dplyr::select(-any_of(c('pressure_psi',
-                            'latitude_deg',
-                            'longitude_deg')))
-
-  # 2. Check if 'Marked' exists and if it consists ONLY of NAs
-  if ('Marked' %in% names(data_out)) {
-    if (any(is.na(data_out$Marked))) {
-      data_out <- data_out |> dplyr::select(-Marked)
-    }
-  }
-
-  # 3. Crucial: Return the data frame
   return(data_out)
 }
