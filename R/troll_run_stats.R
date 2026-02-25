@@ -92,5 +92,5 @@ troll_run_stats <- function(df,
   return(out_list)
 }
 
-dat |> troll_run_stats()
+# dat |> troll_run_stats()
 

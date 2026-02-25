@@ -3,14 +3,25 @@
 median_secs <- 30
 target_depths <- seq(0,8,1)
 
+target_interval <- unique(na.omit(diff(target_depths)))
+if(length(target_interval)!=1){
+  warning('Provided target depths are not of a regular interval.')
+  target_interval <- NULL
+}
+
 dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
   rename_cols() |>                   # Makes pretty and standardized column names
   strip_meta() |>                    # removes unnessary columns
-  depth_rounder(tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
+  depth_rounder(interval = ,
+                tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
   is_stationary()                    # Adds 'is_stationary_status' column
 
 # try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
 try <- troll_run_stats(dat)
+
+if(!all(target_depths %in% try$final_depths)) {
+  stop('')
+}
 
 dat2 <- dat |>
   remove_jiggle(sampling_int = try$samp_int)

@@ -178,22 +178,29 @@ depth_rounder <- function(df,
   tol_dec <- decimalplaces(tolerance)
   if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,' is unrealistically small.'))
 
+  if(!is.null(interval)){ # If regular intervals enter this loop
   int_dec <- decimalplaces(interval)
   if(int_dec>2) stop(paste0('Depth interval: ',interval,' is unrealistically small.'))
 
   data_out <- df |>
     dplyr::mutate(
-      obs_depth = round({{depth_col}}, tol_dec),
-      nearest_interval = round(obs_depth / interval) * interval,
+      obs_depth = round({{depth_col}}, tol_dec),                        # Only keep precision to tolerance level
+      nearest_interval = round(obs_depth / interval) * interval,        # This checks for closest given interval, allowing decimal intervals too
       # Round the difference to 6 decimals to avoid floating-point issues
       flag_depth = dplyr::case_when(
         obs_depth < 0.5 ~ '',
-        round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag',
+        round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag', # This does the work
         TRUE ~ ''
       ),
       obs_depth2 = round(obs_depth / interval) * interval
     ) |>
     dplyr::select(-nearest_interval)
+  }
+
+  if(is.null(interval)){
+    stop('DA needs to update the function to allow irregular intervals. I guess you are on your own!\nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
+  }
+
 
   return(data_out)
 }
