@@ -32,6 +32,37 @@ dat2 <- dat |>
   remove_jiggle(sampling_int = try$samp_int,
                 jiggle_secs = shake_time)
 
+# Check for number of obs to calculate median
+check_dat <- dat2 |>
+  dplyr::filter(post_jiggle==TRUE) |>
+  dplyr::group_by(obs_depth) |>
+  dplyr::summarise(n_obs_median = unique(n_obs_post_jig)) |>
+  dplyr::mutate(times_avail = n_obs_median * try$samp_int,
+                flag_nobs_toofew = ifelse(times_avail < median_secs,
+                                          times_avail,
+                                          FALSE)) |>
+  dplyr::ungroup()
+
+if(any(check_dat$flag_nobs_toofew == 0)) {
+  bad_depths <- check_dat$obs_depth[check_dat$flag_nobs_toofew!=0]
+  bad_times <- check_dat$times_avail[check_dat$flag_nobs_toofew!=0]
+
+  bad_dat <- data.frame(depth = bad_depths,
+                        seconds = bad_times)
+
+  msg <- paste0(
+    "Stationary blocks detected at the following depths:\n",
+    paste0(
+      "  • ", bad_depths, " m for ", bad_times, " s",
+      collapse = "\n"
+    ),
+    "\n\nDid not meet the minimum stationary duration criteria of ",median_secs," seconds."
+  )
+
+  warning(msg, call. = FALSE)
+ }
+check_dat
+
 
 
 data_final <- data|> group_by(depthwholem)|>arrange(id)|>
