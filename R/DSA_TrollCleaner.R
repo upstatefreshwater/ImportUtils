@@ -527,3 +527,5 @@ troll_rollRange <- function(df,
   return(range_dat)
 }
 
+
+

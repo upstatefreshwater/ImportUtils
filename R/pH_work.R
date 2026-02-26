@@ -76,8 +76,9 @@ range(xx$ph_sd_per_sec,na.rm = T)
 
 
 
-####
+#### ----
 stationary_thresh = 998
+
 xx <-
   dat3 %>% ungroup() %>%
   select(DateTime,depth_m,obs_depth,stationary_block_id,is_stationary_status,post_jiggle,pH_units) %>%
@@ -87,54 +88,54 @@ xx <-
   group_split()
 
 
-junk <- xx[[4]]
-# junk
-#
-# names(junk)
-
+junk <- xx[[7]]
 
 min_n = 5
-slope_thresh = 0.0001
+sampling_int = 2 # seconds
+slope_thresh = 0.01
 df <- junk
 
 out <- tibble(
   stationary_block_id = df$stationary_block_id,
+  DateTime = df$DateTime,
   n_used = NA_real_,
   slope = NA_real_,
+  slope_per_second = NA_real_,
   n_dropped = NA_real_,
   i = 1:nrow(df),
   meets_thresh = FALSE)
 
 i = 1
 dropped <- 0
+
 while (nrow(df)>=min_n) {
-  fit <- lm(pH_units ~ t, data = df)
-  slope_fit <<- coef(fit)[["t"]]
-  print(slope_fit)
+  fit <- lm(pH_units ~ t, data = df)                            # fit linear regression across entire data
+  slope_fit <<- coef(fit)[["t"]]                                # extract the slope
+  # convert to rate (slope/second)
+  slope_per_sec <- slope_fit / 60          # convert the slope into a rate
 
-  block_id <- df$stationary_block_id
-
-  # out <- out %>%
-  #   rowwise() %>%
-  #   mutate(slope = slope_fit)
   out$slope[i] <- slope_fit
+  out$slope_per_second[i] = slope_per_sec
   out$n_dropped[i] <- dropped
   out$n_used[i] <- nrow(df)
 
   if(abs(slope_fit) <= slope_thresh){
     out$meets_thresh <- TRUE
-    # tibble(
-    # stationary_block_id = block_id,
-    # slope = slope,
-    # n_used = nrow(df),
-    # n_dropped = dropped)
-    # break
   }
 
   df <- df[-1,]
   dropped <- dropped + 1
   i = i + 1
 }
+
+out <- out %>% na.omit()
+
+dat3 %>% ungroup() %>%
+  left_join(out,
+            by = 'DateTime') %>% view
+
+
+
 # try this
 fit_until_slope_ok <- function(df,
                                slope_thresh = 0.001,
