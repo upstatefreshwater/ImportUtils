@@ -73,8 +73,9 @@ dat3 <- dat2 |>
   troll_rollRange(sampling_int = sampling_interval_calculated)
 
 # 2. Exploratory plots for other params ----
+library(ggplot2)
 pdat <- dat3 |>
-  dplyr::filter(post_jiggle) # only keeps "stable" data after the "jiggle" period
+  dplyr::filter() # only keeps "stable" data after the "jiggle" period
 
 ggplot(data = pdat,
        aes(x=seq_len(nrow(pdat)),
@@ -82,6 +83,10 @@ ggplot(data = pdat,
            color=as.factor(obs_depth))) +
   geom_point() + geom_path() +
   labs(x = 'Observation Index')
+
+ggplot(data = pdat,
+       aes(x=pH_units,y=obs_depth*-1)) +
+  geom_point() + geom_path()
 
 ggplot(data = pdat,
        aes(x=seq_len(nrow(pdat)),
