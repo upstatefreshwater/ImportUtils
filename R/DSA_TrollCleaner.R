@@ -521,21 +521,9 @@ troll_rollRange <- function(df,
       temp_withinthresh = temp_range <= temp_range_thresh,             # Only need to handle the threshold now, stationary & jiggle handled above
       temp_withinthresh = dplyr::coalesce(temp_withinthresh,FALSE),    # This replaces NAs with FALSE so consecutive_id works
 
-      range_block_id = dplyr::consecutive_id(DO_withinthresh))
+      range_block_id = dplyr::consecutive_id(DO_withinthresh)) |>
+    dplyr::ungroup()
 
   return(range_dat)
 }
 
-# pH_stable ----
-pH_stable <- function(df,
-                      sd_thresh,
-                      pH_col = pH_units){
-
-
-}
-
-# dat3 %>%
-#   group_by(obs_depth) %>%
-#   filter(DO_withinthresh) %>%
-#   summarise(median = median(pH_units,na.rm = T),
-#             sd = sd(pH_units,na.rm = T))
