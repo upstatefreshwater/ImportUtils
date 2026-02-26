@@ -13,9 +13,33 @@ git rebase origin/main  # clean history, requires force push
 git push --force-with-lease origin dsa/TrollStability
 
 
-supposedly can use this to bring in updates from remote/main 
+supposedly can use this to bring in updates from remote/main :
 
 git fetch origin && \
 git checkout main && git pull origin main && \
 git checkout dsa/TrollStability && \
 git merge main
+
+the rebase version:
+
+git fetch origin && \
+git checkout main && git pull origin main && \
+git checkout dsa/TrollStability && \
+git rebase main && \
+git push --force-with-lease origin dsa/TrollStability
+
+#________________________________________________________
+
+1) Check GIT status
+	git status
+	
+2) If there are modified files from status check
+	git commit -am "WIP: save before syncing main"
+	or
+	git stash
+	
+3) Switch to main, update it
+	git switch main
+	git pull -ff-only origin main
+	
+4) 

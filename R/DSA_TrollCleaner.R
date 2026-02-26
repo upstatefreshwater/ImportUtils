@@ -86,7 +86,7 @@ rename_cols <- function(data,
   message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
   }
 
-  return(data %>%
+  return(data |>
            dplyr::arrange(DateTime))
 }
 

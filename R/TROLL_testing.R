@@ -73,7 +73,7 @@ dat3 <- dat2 |>
   troll_rollRange(sampling_int = sampling_interval_calculated)
 
 # 2. Exploratory plots for other params ----
-pdat <- dat3 %>%
+pdat <- dat3 |>
   dplyr::filter(post_jiggle) # only keeps "stable" data after the "jiggle" period
 
 ggplot(data = pdat,
