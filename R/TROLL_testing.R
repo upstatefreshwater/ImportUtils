@@ -72,6 +72,11 @@ if(any(check_dat$flag_nobs_toofew == 0)) {
 dat3 <- dat2 |>
   troll_rollRange(sampling_int = sampling_interval_calculated)
 
+
+ph_testdat <- dat3 |>
+  pH_stable(sampling_int = sampling_interval_calculated,
+            slope_thresh = 0.01) # units/second
+
 # 2. Exploratory plots for other params ----
 library(ggplot2)
 pdat <- dat3 |>

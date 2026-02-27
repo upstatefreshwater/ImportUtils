@@ -529,3 +529,120 @@ troll_rollRange <- function(df,
 
 
 
+# pH --------
+# For each stationary block, after the jiggle period, repeatedly fit a linear trend of pH vs time, dropping early observations one-by-one, until only min_n points remain.
+# Then, based on slope behavior, decide how many of the final points should be kept as “stable”.
+
+pH_stable <- function(df,
+                      min_n = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
+                      sampling_int = 2,        # seconds
+                      slope_thresh = 0.01,     # units/minute
+                      stationary_thresh = 998){
+  data_in <- df # Don't overwrite your input data kids!!!
+  # 1. Input checks ----
+req_cols <- c('DateTime','depth_m','obs_depth','stationary_block_id','is_stationary_status','post_jiggle','pH_units')
+
+if(!all(req_cols %in% names(df))){
+  missingCols <- req_cols[!req_cols %in% names(df)]
+  stop(paste("Missing columns:", paste(missingCols, collapse = ", ")))
+}
+  # 2. Data Manipulation ----
+
+  stable_groups_split <-
+    df |>
+    dplyr::ungroup() |>
+    dplyr::select(DateTime,depth_m,obs_depth,stationary_block_id,is_stationary_status,post_jiggle,pH_units) |>
+    # Only keep stationary post jiggle pH data that are non-NA
+    dplyr::filter(post_jiggle & is_stationary_status > stationary_thresh & !is.na(pH_units)) |>
+    dplyr::group_by(stationary_block_id) |>
+    dplyr::mutate(t = as.numeric(difftime(DateTime, DateTime[1], units = "mins"))) |>  # scale time and make it into minutes
+    dplyr::group_split()
+
+  # 3. Compute slope statistics.
+  #    Start with entire post-jiggle period, re-calculate dropping an obs. each time until min_n is reached
+
+  # Iterate across each of the stable groups data
+  out <- tibble::tibble()
+    # DateTime = df$DateTime,
+    #             stationary_block_id = df$stationary_block_id,
+    #             stable_pH_flag = FALSE)
+
+  for (i in seq_along(stable_groups_split)) {
+
+    df <- stable_groups_split[[i]]                    # Extract one stable group of data
+
+    # intermediate single group data holder
+    group_out <- tibble::tibble(
+      stationary_block_id = df$stationary_block_id,
+      DateTime = df$DateTime,
+      n_used = NA_real_,
+      slope = NA_real_,
+      n_dropped = NA_real_,
+      i = 1:nrow(df),
+      meets_thresh = FALSE)
+
+    # pre-allocate iterators
+    j = 1
+    dropped <- 0
+
+    # Calculate slope starting using all data, then take one away until only min_n rows are left
+    while (nrow(df)>=min_n) {
+      fit <- lm(pH_units ~ t, data = df)                            # fit linear regression across entire data
+      slope_fit <- coef(fit)[["t"]]                                # extract the slope
+
+      group_out$slope[j] <- slope_fit
+      group_out$n_dropped[j] <- dropped
+      group_out$n_used[j] <- nrow(df)
+
+      if(abs(slope_fit) <= slope_thresh){
+        group_out$meets_thresh[j] <- TRUE
+      }
+
+      df <- df[-1,]
+      dropped <- dropped + 1
+      j = j + 1
+    }
+# 4. Determine how many rows to keep ----
+    # Drop NA tail rows
+    # return(group_out)
+    group_out <- na.omit(group_out)
+    # return(group_out)
+
+    slopes <- group_out$slope
+
+    never_met_thresh <- if(!any(slopes < slope_thresh)) TRUE else FALSE
+
+    # If all the slope signs are pointing the same direction, or the slope_thresh was not met, keep only min_n rows
+    if(all(slopes >= 0) | all(slopes <=0) | never_met_thresh){
+      group_out <- tail(group_out, min_n)
+    }
+
+    # Otherwise, keep all rows after the threshold is met
+    if(!never_met_thresh){
+    first_below_idx <- which(abs(group_out$slope) < slope_thresh)[1]
+    r <- nrow(group_out)
+    # min_obs_check <- r - first_below_idx + 1
+    min_obs_check <- if(!is.na(first_below_idx)) r - first_below_idx + 1 else 0 # Handle case where threshold was never met
+
+    # If first slope threshold met results in < min_n observations, keep min_n
+    if(min_obs_check < min_n){ # If min_n = 1, it allows only the final observation be kept
+      group_out <- tail(group_out, min_n)
+    } else{                    # If slope signal is flat enough and oscillating, keep all rows after first obs < slope_thresh
+      group_out <- group_out[first_below_idx:r,]
+    }
+
+    }
+    out <- dplyr::bind_rows(out, group_out)
+    # out <- out |> dplyr::left_join(group_out,by = 'DateTime','stationary_block_id')
+  }
+
+  final <- data_in |>
+    dplyr::left_join(out, by = c("DateTime","stationary_block_id"))
+
+  return(final)
+}
+
+
+
+
+
