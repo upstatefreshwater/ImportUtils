@@ -26,6 +26,20 @@ troll_rollRange <- function(df,
       DO_withinthresh = DO_range <= DO_range_thresh,                  # Only need to handle the threshold now, stationary & jiggle handled above
       DO_withinthresh = dplyr::coalesce(DO_withinthresh,FALSE),       # This replaces NAs with FALSE so consecutive_id works
 
-      range_block_id = dplyr::consecutive_id(DO_withinthresh))
+      range_block_id = dplyr::consecutive_id(DO_withinthresh),
+
+      # Calculate Temp range across the window -----
+      temp_range = zoo::rollapplyr(                                      # "r" at the end means "right" or "backwards looking" across the width
+        ifelse(post_jiggle, {{temp_col}}, NA),                           # Only calculate for the "post_jiggle" period
+        width = n_range_window,
+        FUN = function(x) if (all(!is.na(x))) max(x) - min(x) else NA,  # Computes the range across the wintempw
+        fill = NA                                                       # NOTE** a number of obs are set to NA because of !all(is.na), so when width = 5 obs, 4 obs beyond post_jiggle are NA, and this increases with increasing wintempw size
+      ),
+      # Flag stationary post-jiggle obs. that are below set temp range threshold ----
+      temp_withinthresh = temp_range <= temp_range_thresh,                  # Only need to handle the threshold now, stationary & jiggle handled above
+      temp_withinthresh = dplyr::coalesce(temp_withinthresh,FALSE),       # This replaces NAs with FALSE so consecutive_id works
+
+      range_block_id = dplyr::consecutive_id(temp_withinthresh)
+      )
 
 }

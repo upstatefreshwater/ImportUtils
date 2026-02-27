@@ -14,7 +14,10 @@ if(length(target_interval)!=1){
   target_interval <- NULL
 }
 
-dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
+dat <-
+  # read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
+  # read_datafile('inst/extdata/2025-05-13_LW1.csv') |>
+  read_datafile('inst/extdata/2025-05-27_LT1.csv') |>
   rename_cols() |>                   # Makes pretty and standardized column names
   strip_meta() |>                    # removes unnessary columns
   depth_rounder(interval = target_interval,
@@ -28,7 +31,9 @@ try <- troll_run_stats(dat)
 
 # Pull out the sampling interval
 sampling_interval_calculated <- try$samp_int
-
+if(sampling_interval_calculated!=2){
+  warning(paste('The sampling interval identified:',sampling_interval_calculated,'seconds, is not equal to the default of 2 seconds.'))
+}
 if(!all(target_depths %in% try$final_depths)) {
   stop('The final depths extracted from raw data (rounded to the interval between target depths) do not match the target depths.\n\nCheck the specification of target depths and the tolerance used to round raw depth data.\n\nOften this is caused by too strict of a depth tolerance relative to imperfect field data.')
 }
@@ -69,6 +74,67 @@ if(any(check_dat$flag_nobs_toofew == 0)) {
 
 dat3 <- dat2 |>
   troll_rollRange(sampling_int = sampling_interval_calculated)
+
+
+
+#__________________________________________
+#______________________________________
+#________________________________________
+
+# ggplot(data = dat3 %>%
+#          dplyr::filter(!is.na(DO_range)),
+#        aes(x = pH_units,y=depth_m*-1)) +
+#   geom_point() + geom_path()
+
+pdat <- dat3 %>%
+  dplyr::filter(post_jiggle)
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=pH_units,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index')
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=chlorophyll_RFU,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index') +
+  coord_cartesian(ylim = c(0,0.05))
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=bga_fluorescence_RFU,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index') +
+  coord_cartesian(ylim = c(0,0.05))
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=sp_conductivity_uScm,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index') +
+  coord_cartesian(ylim = c(80,90))
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=ORP_mV,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index')
+
+ggplot(data = pdat,
+       aes(x=seq_len(nrow(pdat)),
+           y=turbidity_NTU,
+           color=as.factor(obs_depth))) +
+  geom_point() + geom_path() +
+  labs(x = 'Observation Index') +
+  coord_cartesian(ylim = c(0,2.5))
+
 
 
 data_final <- data|> group_by(depthwholem)|>arrange(id)|>
@@ -203,12 +269,12 @@ plotstuff(df = dat, 'depth_m')
 # Exploratory plots ----
 library(tidyverse)
 
-ggplot(data = try) +
+ggplot(data = dat) +
   geom_point(aes(x = DO_mgL,y = depth_m, color = 'Raw')) +
   geom_point(aes(x = temp_median, y = obs_depth, color = 'Median')) +
   scale_y_reverse()
 
-ggplot(data = try) +
+ggplot(data = dat) +
   geom_point(aes(x = DateTime, y = temperature_C, color = 'Raw')) + # temperature_C-15 # depth_m
   geom_point(aes(x = DateTime, y = temp_median, color = 'Median')) +
   geom_vline(xintercept = c(ymd_hms('2025/09/16 15:17:55'),
