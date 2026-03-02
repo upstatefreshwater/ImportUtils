@@ -42,4 +42,13 @@ git push --force-with-lease origin dsa/TrollStability
 	git switch main
 	git pull -ff-only origin main
 	
-4) 
+4) Switch back to working branch
+	git switch <branch-name>
+	
+5) Rebase (from the branch!) NOTE!!! - This assumes private branches, if branches are shared use a merge
+	git rebase main 
+	
+6) If you stashed, bring back the work
+	git stash pop
+	
+	

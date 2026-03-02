@@ -29,9 +29,16 @@ git rebase main && \
 git push --force-with-lease origin dsa/TrollStability
 
 #________________________________________________________
+# To pull in updates to the remote main:
 
-1) Check GIT status
+1) Check GIT status - look to see if there are locally modified files
 	git status
+	
+1) Check if anything changed remotely
+	git fetch
+	
+“Show me what commits exist on origin/main that I don’t yet have on main.”
+	git log --oneline --decorate --graph --boundary main..origin/main
 	
 2) If there are modified files from status check
 	git commit -am "WIP: save before syncing main"
@@ -51,4 +58,5 @@ git push --force-with-lease origin dsa/TrollStability
 6) If you stashed, bring back the work
 	git stash pop
 	
-	
+#________________________________________________________
+# To 
