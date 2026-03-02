@@ -1,39 +1,56 @@
 # read_datafile ----
 read_datafile <- function(path){
-
-  # Read the file to identify the lines
+  # Check that file exists at the specified path
+  if(!file.exists(path)){
+    stop("File does not exist at the specified path:\n", path)
+  }
+  # Read the file to identify the start line
   file_content <- readLines(path)
 
   # Find the line number that contains "Date Time"
   start_line <- grep("Date Time", file_content)
   if (length(start_line)==0) {
-    stop("Cannot locate 'Date Time' in the datafile./n
+    stop("Cannot locate 'Date Time' in the datafile.\n
         Check that 'Date Time' exists in the raw data.") # Check for Date Time Row Existing
+  }
+  if (length(start_line) > 1) {
+    stop("Multiple lines containing 'Date Time' were found. Cannot determine which one is the header row.")
   }
   # Read the CSV starting from the identified line (Date Time)
   data <- readr::read_csv(path,
                           skip = start_line - 1,
                           show_col_types = FALSE)
 
-  # Format the Date Time column
-  parsed_dates <- lubridate::parse_date_time(
-    data$`Date Time`,
-    orders = c('ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'),
+  # Double check (could help with debugging)
+  if (!("Date Time" %in% names(data))) {
+    stop("Column 'Date Time' was not found after reading the file. Check file structure.")
+  }
+
+  raw_dt <- data$`Date Time`
+
+  # Attempt strict parsing WITH seconds
+  parsed_hms <- lubridate::parse_date_time(
+    raw_dt,
+    orders = c("ymd HMS", "mdy HMS"),
     quiet = TRUE
   )
 
-  # If the first row is NA, it means none of our orders matched the data
-  if (all(is.na(parsed_dates))) {
-    stop(paste0("Format check failed: Could not parse 'Date Time' column with provided formats./n
-            Formats tried were: ", 'ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'))
-  } else {
-    # Apply the successfully parsed dates back to the dataframe
-    data$`Date Time` <- parsed_dates
-    message("Successfully parsed 'Date Time' column.")
-  }
+  if (any(is.na(parsed_hms))) { # If any are returned as NA (parsing failed)
 
-  if(all(is.na(lubridate::second(data$`Date Time`)))) {
-    warning('No seconds were included in the raw data, check the data file formatting for "Date Time" column!')
+    # Try minute-only formats to diagnose cause
+    parsed_hm <- lubridate::parse_date_time(
+      raw_dt,
+      orders = c("ymd HM", "mdy HM"),
+      quiet = TRUE
+    )
+
+    if (all(!is.na(parsed_hm))) {
+      stop("Timestamp format error: seconds are missing from 'Date Time'.\n",
+           "Second-level resolution is required. Please check the raw data file.")
+    } else {
+      stop("Timestamp format error: could not parse 'Date Time' column.\n",
+           "Expected formats: ymd HMS or mdy HMS.")
+    }
   }
 
   return(data )
@@ -42,19 +59,65 @@ read_datafile <- function(path){
 # rename_cols ----
 rename_cols <- function(data,
                         print_colnames = FALSE){
-  # name second temperature column - TROLL COM temperature - if included in the spreadsheet
-  if ("Temperature (°C) (1153542)" %in% names(data)) {
-    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
-  }
-  if ("Temperature (°C) (1151975)" %in% names(data)) {
-    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
+
+  # ---- Special-case Troll COM temperature ----
+  # Extract columns that rely on the TROLL-comm (Baro press, internal temp)
+  comm_cols <- names(data)[stringr::str_detect(
+    names(data),
+    paste(trollCOMM_serials, collapse = "|")
+  )]
+
+  # If no TROLL-comm data columns, just present a message to the console
+  if (length(comm_cols) == 0) {
+
+    message("No TROLL-COM data columns detected.")
+
+    # If there are data columns check that there is only a single s/n
+  } else {
+    # Extract the serial numbers in the data based on the known TROLL-comm serials
+    comm_sn <- stringr::str_extract(
+      comm_cols,
+      paste(trollCOMM_serials, collapse = "|")
+    )
+
+    # pull the serial(s)
+    comm_sn <- unique(comm_sn[!is.na(comm_sn)])
+
+    # If only one serial detected, rename the temp to avoid conflicts with water temp
+    if (length(comm_sn) == 1) {
+
+      comm_tempcol <- paste0("Temperature (°C) (", comm_sn, ")") # Need to apply the correct s/n in column name
+
+      if (comm_tempcol %in% names(data)) {
+
+        message(
+          "TROLL-COM temperature detected (serial ", comm_sn, ").\n",
+          "Renaming column: ", comm_tempcol
+        )
+
+        data <- data |>
+          dplyr::rename(
+            Trollcom_temperature_C = !!rlang::sym(comm_tempcol) # Needs tidy-eval selection here
+          )
+
+      }
+
+    } else {
+
+      warning(
+        "Multiple TROLL-COM serials detected: ",
+        paste(comm_sn, collapse = ", "),
+        ".\nCannot automatically select which temperature column to use."
+      )
+
+    }
   }
 
-  # Use gsub to remove undesired (####) in column names
-  cleaned_col_names <- gsub("\\s*\\(\\d+\\)","",colnames(data))
-  # Set the cleaned names as the column names
-  colnames(data) <- cleaned_col_names
+  # ---- Clean column names ----
+  cleaned_col_names <- gsub("\\s*\\(\\d+\\)", "", names(data))
+  names(data) <- cleaned_col_names
 
+  # ---- Column selection ----
   # Checks required Depth column is present
   required <- c("Depth (m)")
   missing <- setdiff(required, names(data))

@@ -1,3 +1,5 @@
+source('R/DSA_TrollCleaner.R')
+
 median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
 target_depths <- seq(0,8,1)
@@ -14,8 +16,8 @@ if(length(target_interval)!=1){
 
 dat <-
   # read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  # read_datafile('inst/extdata/2025-05-13_LW1.csv') |>
-  read_datafile('inst/extdata/2025-05-27_LT1.csv') |>
+  read_datafile('inst/extdata/2025-05-13_LW1.csv') |>
+  # read_datafile('inst/extdata/2025-05-27_LT1.csv') |>
   rename_cols() |>                   # Makes pretty and standardized column names
   strip_meta() |>                    # removes unnessary columns
   depth_rounder(interval = target_interval,
