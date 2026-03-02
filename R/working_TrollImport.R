@@ -1,3 +1,5 @@
+source('R/DSA_TrollCleaner.R')
+
 median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
 target_depths <- seq(0,8,1)

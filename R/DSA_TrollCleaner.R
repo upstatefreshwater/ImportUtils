@@ -1,39 +1,56 @@
 # read_datafile ----
 read_datafile <- function(path){
-
-  # Read the file to identify the lines
+  # Check that file exists at the specified path
+  if(!file.exists(path)){
+    stop("File does not exist at the specified path:\n", path)
+  }
+  # Read the file to identify the start line
   file_content <- readLines(path)
 
   # Find the line number that contains "Date Time"
   start_line <- grep("Date Time", file_content)
   if (length(start_line)==0) {
-    stop("Cannot locate 'Date Time' in the datafile./n
+    stop("Cannot locate 'Date Time' in the datafile.\n
         Check that 'Date Time' exists in the raw data.") # Check for Date Time Row Existing
+  }
+  if (length(start_line) > 1) {
+    stop("Multiple lines containing 'Date Time' were found. Cannot determine which one is the header row.")
   }
   # Read the CSV starting from the identified line (Date Time)
   data <- readr::read_csv(path,
                           skip = start_line - 1,
                           show_col_types = FALSE)
 
-  # Format the Date Time column
-  parsed_dates <- lubridate::parse_date_time(
-    data$`Date Time`,
-    orders = c('ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'),
+  # Double check (could help with debugging)
+  if (!("Date Time" %in% names(data))) {
+    stop("Column 'Date Time' was not found after reading the file. Check file structure.")
+  }
+
+  raw_dt <- data$`Date Time`
+
+  # Attempt strict parsing WITH seconds
+  parsed_hms <- lubridate::parse_date_time(
+    raw_dt,
+    orders = c("ymd HMS", "mdy HMS"),
     quiet = TRUE
   )
 
-  # If the first row is NA, it means none of our orders matched the data
-  if (all(is.na(parsed_dates))) {
-    stop(paste0("Format check failed: Could not parse 'Date Time' column with provided formats./n
-            Formats tried were: ", 'ymd HMS', 'mdy HMS', 'ymd HM', 'mdy HM'))
-  } else {
-    # Apply the successfully parsed dates back to the dataframe
-    data$`Date Time` <- parsed_dates
-    message("Successfully parsed 'Date Time' column.")
-  }
+  if (any(is.na(parsed_hms))) { # If any are returned as NA (parsing failed)
 
-  if(all(is.na(lubridate::second(data$`Date Time`)))) {
-    warning('No seconds were included in the raw data, check the data file formatting for "Date Time" column!')
+    # Try minute-only formats to diagnose cause
+    parsed_hm <- lubridate::parse_date_time(
+      raw_dt,
+      orders = c("ymd HM", "mdy HM"),
+      quiet = TRUE
+    )
+
+    if (all(!is.na(parsed_hm))) {
+      stop("Timestamp format error: seconds are missing from 'Date Time'.\n",
+           "Second-level resolution is required. Please check the raw data file.")
+    } else {
+      stop("Timestamp format error: could not parse 'Date Time' column.\n",
+           "Expected formats: ymd HMS or mdy HMS.")
+    }
   }
 
   return(data )
