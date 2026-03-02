@@ -118,11 +118,42 @@ rename_cols <- function(data,
   names(data) <- cleaned_col_names
 
   # ---- Column selection ----
+
+  # Detect which columns exist in the data
+  existing_cols <- base::intersect(names(data), allposs_troll_colnames)
+
+  # Detect unkown columns
+  unknown_cols <- setdiff(names(data), allposs_troll_colnames)
+
+  if (length(unknown_cols)) { # Implicitly this says has to be >0
+    stop(
+      "Unknown column(s) detected in data file:\n",
+      paste(unknown_cols, collapse = "\n"),
+      "\n\nThese columns are not included in the package's list of supported sensors.\n",
+      "If these represent new sensors, inform DaveA that the internal data needs to be updated."
+    )
+  }
+
+  # Required columns
+  required_cols <- c("Date Time", "Depth (m)")
+
+  missing <- setdiff(required_cols, names(data))
+  if (length(missing)) {
+    stop(
+      paste0(
+        "Cannot locate the following required column(s) in the data file:\n  - ",
+        paste(missing, collapse = "\n  - "),
+        "\n\nCheck that these columns exist in the raw data (e.g., 'Depth (m)')."
+      )
+    )
+  }
+  #START HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  # optional_cols <- setdiff(existing_cols, required_cols)
+
   # Checks required Depth column is present
   required <- c("Depth (m)")
-  missing <- setdiff(required, names(data))
-  if (length(missing)) stop("Cannot locate 'Depth (m)' in the datafile./n
-        Check that 'Depth (m)' exists in the raw data.")
+
 
   # Check that there are more columns recorded besides Date Time and Depth
   if(ncol(data) < 3){message("Only parameters are 'Date Time' and 'Depth (m)'")}
