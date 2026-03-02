@@ -607,7 +607,7 @@ if(!all(req_cols %in% names(df))){
       x_var <- stable_group_dat$pH_units
       y_var <- stable_group_dat$t
 
-      slope_fit <- stats::cov(x, y) / stats::var(x)
+      slope_fit <- stats::cov(x_var, y_var) / stats::var(x_var)
 
       group_out$slope[j] <- slope_fit
       group_out$n_dropped[j] <- dropped
