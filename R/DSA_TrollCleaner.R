@@ -600,9 +600,14 @@ if(!all(req_cols %in% names(df))){
 
     # Calculate slope starting using all data, then take one away until only min_n rows are left
     while (nrow(stable_group_dat)>=min_n) {
-      fit <- lm(pH_units ~ t, data = stable_group_dat)                            # fit linear regression across entire data
-      slope_fit <- coef(fit)[["t"]]                                # extract the slope
+      # fit <- lm(pH_units ~ t, data = stable_group_dat)                            # fit linear regression across entire data
+      # slope_fit <- coef(fit)[["t"]]                                # extract the slope
 
+      # Compute slope analytically to speed up processing time
+      x_var <- stable_group_dat$pH_units
+      y_var <- stable_group_dat$t
+
+      slope_fit <- stats::cov(x, y) / stats::var(x)
 
       group_out$slope[j] <- slope_fit
       group_out$n_dropped[j] <- dropped
