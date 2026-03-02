@@ -59,19 +59,65 @@ read_datafile <- function(path){
 # rename_cols ----
 rename_cols <- function(data,
                         print_colnames = FALSE){
-  # name second temperature column - TROLL COM temperature - if included in the spreadsheet
-  if ("Temperature (°C) (1153542)" %in% names(data)) {
-    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1153542)`)
-  }
-  if ("Temperature (°C) (1151975)" %in% names(data)) {
-    data <- data |> dplyr::rename(Trollcom_temperature_C = `Temperature (°C) (1151975)`)
+
+  # ---- Special-case Troll COM temperature ----
+  # Extract columns that rely on the TROLL-comm (Baro press, internal temp)
+  comm_cols <- names(data)[stringr::str_detect(
+    names(data),
+    paste(trollCOMM_serials, collapse = "|")
+  )]
+
+  # If no TROLL-comm data columns, just present a message to the console
+  if (length(comm_cols) == 0) {
+
+    message("No TROLL-COM data columns detected.")
+
+    # If there are data columns check that there is only a single s/n
+  } else {
+    # Extract the serial numbers in the data based on the known TROLL-comm serials
+    comm_sn <- stringr::str_extract(
+      comm_cols,
+      paste(trollCOMM_serials, collapse = "|")
+    )
+
+    # pull the serial(s)
+    comm_sn <- unique(comm_sn[!is.na(comm_sn)])
+
+    # If only one serial detected, rename the temp to avoid conflicts with water temp
+    if (length(comm_sn) == 1) {
+
+      comm_tempcol <- paste0("Temperature (°C) (", comm_sn, ")") # Need to apply the correct s/n in column name
+
+      if (comm_tempcol %in% names(data)) {
+
+        message(
+          "TROLL-COM temperature detected (serial ", comm_sn, ").\n",
+          "Renaming column: ", comm_tempcol
+        )
+
+        data <- data |>
+          dplyr::rename(
+            Trollcom_temperature_C = !!rlang::sym(comm_tempcol) # Needs tidy-eval selection here
+          )
+
+      }
+
+    } else {
+
+      warning(
+        "Multiple TROLL-COM serials detected: ",
+        paste(comm_sn, collapse = ", "),
+        ".\nCannot automatically select which temperature column to use."
+      )
+
+    }
   }
 
-  # Use gsub to remove undesired (####) in column names
-  cleaned_col_names <- gsub("\\s*\\(\\d+\\)","",colnames(data))
-  # Set the cleaned names as the column names
-  colnames(data) <- cleaned_col_names
+  # ---- Clean column names ----
+  cleaned_col_names <- gsub("\\s*\\(\\d+\\)", "", names(data))
+  names(data) <- cleaned_col_names
 
+  # ---- Column selection ----
   # Checks required Depth column is present
   required <- c("Depth (m)")
   missing <- setdiff(required, names(data))
