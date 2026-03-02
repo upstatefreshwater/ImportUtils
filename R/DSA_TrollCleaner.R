@@ -538,8 +538,21 @@ pH_stable <- function(df,
                       sampling_int = 2,        # seconds
                       slope_thresh = 0.01,     # units/minute
                       stationary_thresh = 998){
-  data_in <- df # Don't overwrite your input data kids!!!
   # 1. Input checks ----
+  # You check required columns. Good.
+  #
+  # But you should also validate:
+  #
+  #   min_n >= 1
+  #
+  # sampling_int > 0
+  #
+  # slope_thresh >= 0
+  #
+  # stationary_thresh numeric
+  #
+  # Package code should fail early and loudly.
+
 req_cols <- c('DateTime','depth_m','obs_depth','stationary_block_id','is_stationary_status','post_jiggle','pH_units')
 
 if(!all(req_cols %in% names(df))){
@@ -569,16 +582,16 @@ if(!all(req_cols %in% names(df))){
 
   for (i in seq_along(stable_groups_split)) {
 
-    df <- stable_groups_split[[i]]                    # Extract one stable group of data
+    stable_group_dat <- stable_groups_split[[i]]                    # Extract one stable group of data
 
     # intermediate single group data holder
     group_out <- tibble::tibble(
-      stationary_block_id = df$stationary_block_id,
-      DateTime = df$DateTime,
+      stationary_block_id = stable_group_dat$stationary_block_id,
+      DateTime = stable_group_dat$DateTime,
       n_used = NA_real_,
       slope = NA_real_,
       n_dropped = NA_real_,
-      i = 1:nrow(df),
+      i = 1:nrow(stable_group_dat),
       meets_thresh = FALSE)
 
     # pre-allocate iterators
@@ -586,31 +599,32 @@ if(!all(req_cols %in% names(df))){
     dropped <- 0
 
     # Calculate slope starting using all data, then take one away until only min_n rows are left
-    while (nrow(df)>=min_n) {
-      fit <- lm(pH_units ~ t, data = df)                            # fit linear regression across entire data
+    while (nrow(stable_group_dat)>=min_n) {
+      fit <- lm(pH_units ~ t, data = stable_group_dat)                            # fit linear regression across entire data
       slope_fit <- coef(fit)[["t"]]                                # extract the slope
+
 
       group_out$slope[j] <- slope_fit
       group_out$n_dropped[j] <- dropped
-      group_out$n_used[j] <- nrow(df)
+      group_out$n_used[j] <- nrow(stable_group_dat)
 
       if(abs(slope_fit) <= slope_thresh){
         group_out$meets_thresh[j] <- TRUE
       }
 
-      df <- df[-1,]
+      stable_group_dat <- stable_group_dat[-1,]
       dropped <- dropped + 1
       j = j + 1
     }
 # 4. Determine how many rows to keep ----
     # Drop NA tail rows
     # return(group_out)
-    group_out <- na.omit(group_out)
+    group_out <- group_out[!is.na(group_out$slope), ]
     # return(group_out)
 
     slopes <- group_out$slope
 
-    never_met_thresh <- if(!any(slopes < slope_thresh)) TRUE else FALSE
+    never_met_thresh <- if(!any(abs(slopes) < slope_thresh)) TRUE else FALSE     # use absolute values to account for negative slopes and positive threshold value
 
     # If all the slope signs are pointing the same direction, or the slope_thresh was not met, keep only min_n rows
     if(all(slopes >= 0) | all(slopes <=0) | never_met_thresh){
@@ -636,7 +650,7 @@ if(!all(req_cols %in% names(df))){
     # out <- out |> dplyr::left_join(group_out,by = 'DateTime','stationary_block_id')
   }
 
-  final <- data_in |>
+  final <- df |>
     dplyr::left_join(out, by = c("DateTime","stationary_block_id"))
 
   return(final)
