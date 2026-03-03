@@ -1,5 +1,6 @@
 # Helpers currently live here:
 source('R/DSA_TrollCleaner.R')
+source('R/rename_trollcols.R')
 
 # 1) This is the skeleton of the main function ----
 median_secs <- 30
@@ -17,7 +18,7 @@ if(length(target_interval)!=1){
 }
 
 dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  rename_cols() |>                   # Makes pretty and standardized column names
+  rename_trollcols() |>                   # Makes pretty and standardized column names
   strip_meta() |>                    # removes unnessary columns
   depth_rounder(interval = target_interval,
                 tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns

@@ -38,7 +38,7 @@ git push --force-with-lease origin dsa/TrollStability
 	git fetch
 	
 “Show me what commits exist on origin/main that I don’t yet have on main.”
-	git log --oneline --decorate --graph --boundary main..origin/main
+	git log --oneline --decorate --graph --boundary main origin/main
 	
 2) If there are modified files from status check
 	git commit -am "WIP: save before syncing main"
