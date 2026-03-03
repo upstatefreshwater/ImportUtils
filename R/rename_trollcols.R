@@ -176,6 +176,48 @@ detect_trollcom <- function(data,
   }
 }
 
+#' Strip Troll Instrument Metadata Columns
+#'
+#' Removes metadata columns (e.g., battery, external voltage, barometric pressure) from a
+#' data frame with Troll sensor data. Also removes the `marked_flag` column if it exists
+#' and consists entirely of `NA`s.
+#'
+#' This function assumes that column names have already been standardized using
+#' `apply_trollname_schema()`. Metadata columns are identified using the
+#' `troll_column_dictionary`.
+#'
+#' @param df A `data.frame` or `tibble` containing Troll sensor data with canonical column names.
+#' @param troll_colname_dictionary A `tibble` dictionary of canonical column names and metadata flags
+#'   (default: `troll_column_dictionary`).
+#'
+#' @return A data frame with metadata columns removed.
+#'
+#' @keywords internal
+#' @noRd
+
+strip_meta <- function(df,
+                       troll_colname_dictionary = troll_column_dictionary) {
+
+  # 1. Identify metadata columns present in the df
+  meta_cols <- troll_colname_dictionary$canonical[
+    troll_colname_dictionary$meta & troll_colname_dictionary$canonical %in% names(df)
+  ]
+
+  # 2. Remove metadata columns
+  data_out <- df |>
+    dplyr::select(-any_of(meta_cols))
+
+  # 3. Remove 'marked_flag' if it exists and is all NA
+  if ('marked_flag' %in% names(data_out)) {
+    if (all(is.na(data_out$marked_flag))) {
+      data_out <- data_out |> dplyr::select(-marked_flag)
+    }
+  }
+
+  # 4. Return cleaned data frame
+  return(data_out)
+}
+
 #' Standardize TROLL Data Column Names
 #'
 #' Cleans, validates, and standardizes raw TROLL CSV column names
@@ -207,19 +249,27 @@ detect_trollcom <- function(data,
 #' @export
 
 rename_trollcols <- function(df,
-                             trollcomm_serialnums = trollCOMM_serials,
-                             print_colnames =FALSE){
+                             trollcomm_serials = trollCOMM_serials,
+                             strip_metadata = TRUE,
+                             print_colnames = FALSE) {
 
-  one <-   detect_trollcom(data = df,
-                           trollCOMM_serials = trollCOMM_serials)
-  two <-   normalize_raw_names(one)
-  three <- apply_trollname_schema(two)
+  # 1. Detect TrollCOM
+  detected_df <- detect_trollcom(data = df, trollCOMM_serials = trollcomm_serials)
 
-  if(print_colnames){
-    column_list <- paste(colnames(three))
-    message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
+  # 2. Normalize raw column names
+  normalized_df <- normalize_raw_names(detected_df)
+
+  # 3. Apply canonical schema
+  schema_df <- apply_trollname_schema(normalized_df)
+
+  # 4. Optionally strip metadata
+  final_df <- if (strip_metadata) strip_meta(schema_df) else schema_df
+
+  # 5. Optionally print columns
+  if (print_colnames) {
+    message("The CSV has Columns:\n  - ", paste(colnames(final_df), collapse = "\n  - "))
   }
 
-  return(three)
+  return(final_df)
 }
 
