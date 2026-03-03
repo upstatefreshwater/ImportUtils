@@ -593,6 +593,96 @@ remove_jiggle <- function(df,
 }
 
 # troll_rollRange ----
+#' Identify Stable Water Quality Periods Using Rolling Range Thresholds
+#'
+#' Calculates rolling ranges of dissolved oxygen (DO) and temperature within
+#' stationary, post-jiggle periods and flags observations that meet
+#' user-defined stability thresholds.
+#'
+#' This function is intended to be used after:
+#' \itemize{
+#'   \item \code{is_stationary()} — to identify stationary blocks
+#'   \item \code{remove_jiggle()} — to remove initial stabilization time
+#' }
+#'
+#' Rolling ranges are computed within each \code{stationary_block_id}
+#' using a backwards-looking (right-aligned) window.
+#'
+#' @param df A data frame containing:
+#' \itemize{
+#'   \item \code{stationary_block_id}
+#'   \item \code{post_jiggle}
+#'   \item DO and temperature columns
+#' }
+#'
+#' @param sampling_int Numeric. Sampling interval in seconds.
+#' Used to convert \code{range_window_secs} into number of observations.
+#'
+#' @param DO_col Unquoted name of the dissolved oxygen column
+#' (e.g., \code{DO_mgL}). Default = \code{DO_mgL}.
+#'
+#' @param temp_col Unquoted name of the temperature column
+#' (e.g., \code{temperature_C}). Default = \code{temperature_C}.
+#'
+#' @param range_window_secs Numeric. Length of rolling window (seconds)
+#' over which range is calculated. Default = 10.
+#'
+#' @param DO_range_thresh Numeric. Maximum allowable rolling DO range
+#' (mg/L) for an observation to be considered stable. Default = 0.1.
+#'
+#' @param temp_range_thresh Numeric. Maximum allowable rolling temperature
+#' range (°C) for an observation to be considered stable. Default = 0.1.
+#'
+#' @details
+#' The rolling window size in observations is calculated as:
+#'
+#' \deqn{n\_range\_window = ceiling(range\_window\_secs / sampling\_int)}
+#'
+#' For each stationary block:
+#' \enumerate{
+#'   \item DO and temperature values are masked outside the
+#'         \code{post_jiggle} period.
+#'   \item A rolling range (max − min) is calculated using
+#'         \code{zoo::rollapplyr()}.
+#'   \item Observations are flagged as within-threshold if their rolling
+#'         range is less than or equal to the specified threshold.
+#' }
+#'
+#' Observations where a full window cannot be computed (e.g., at the
+#' beginning of blocks) are assigned \code{NA} for range and are treated
+#' as not within threshold.
+#'
+#' The column \code{range_block_id} identifies consecutive sequences of
+#' DO range threshold status within stationary blocks.
+#'
+#' @return
+#' The input data frame with additional columns:
+#'
+#' \describe{
+#'   \item{DO_range}{Rolling DO range (mg/L).}
+#'   \item{DO_withinthresh}{Logical flag indicating DO range ≤ threshold.}
+#'   \item{temp_range}{Rolling temperature range (°C).}
+#'   \item{temp_withinthresh}{Logical flag indicating temperature range ≤ threshold.}
+#'   \item{range_block_id}{Identifier for consecutive DO threshold blocks.}
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' df_stable <- troll_rollRange(df,
+#'                               sampling_int = 2,
+#'                               range_window_secs = 10,
+#'                               DO_range_thresh = 0.05,
+#'                               temp_range_thresh = 0.05)
+#'
+#' # Filter fully stable observations
+#' df_stable |>
+#'   dplyr::filter(DO_withinthresh & temp_withinthresh)
+#' }
+#'
+#' @importFrom dplyr group_by mutate ungroup coalesce consecutive_id
+#' @importFrom zoo rollapplyr
+#' @export
+
 troll_rollRange <- function(df,
                             sampling_int,
                             DO_col = DO_mgL,
@@ -600,11 +690,19 @@ troll_rollRange <- function(df,
                             range_window_secs = 10,
                             DO_range_thresh = 0.1,
                             temp_range_thresh = 0.1){
-  if(!('stationary_block_id' %in% names(df))){
+  if(!"stationary_block_id" %in% names(df)){
     stop('"stationary_block_id" column not found. Run `is_stationary()` on raw data first.')
   }
 
   n_range_window <- ceiling(range_window_secs / sampling_int)              # this is the "width" argument of rollapply in units of "rows"/"observations"
+
+  if(n_range_window < 1){                                                  # Check for window size edge cases
+    stop("range_window_secs too small relative to sampling_int.")
+  }
+
+  if(!"post_jiggle" %in% names(df)){                                       # Check remove_jiggle was run
+    stop("Column 'post_jiggle' not found. Run remove_jiggle() first.")
+  }
 
   range_dat <- df |>
     dplyr::group_by(stationary_block_id) |>                            # This groups the data by stationary blocks
