@@ -5,7 +5,8 @@ source('R/rename_trollcols.R')
 # 1) This is the skeleton of the main function ----
 median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
-target_depths <- seq(0,8,1)
+sd_depthrange_thresh <- 0.05 # This is the threshold for the rolling range SD in meters
+target_depths <- seq(0,7,1)
 stationary_time_thresh <- 15 # Consecutive seconds without sonde movmement to be considered "stationary"
 rolling_range_secs <- 10     # Window size used to compile rolling ranges
 depth_plot = FALSE
@@ -17,24 +18,60 @@ if(length(target_interval)!=1){
   target_interval <- NULL
 }
 
-dat <- read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  rename_trollcols() |>                   # Makes pretty and standardized column names
-  strip_meta() |>                    # removes unnessary columns
-  depth_rounder(interval = target_interval,
-                tolerance = 0.2) |>                 # Adds 'obs_depth' and 'flag_depth' columns
-  is_stationary(stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
-                sampling_int = target_interval,
-                drop_cols = F,
-                plot = depth_plot)
-# try <- stabilize_cast(dat)           # Compiles "samp_int", "cast_len", "num_stationary_depths", and "final_depths"
-try <- troll_run_stats(dat)
+dat_read <-
+  # read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
+  read_datafile('inst/extdata/2025-05-07_QL2.csv')
+
+dat_rename <-   rename_trollcols(dat_read)                   # Makes pretty and standardized column names
+
+dat_rnddepth <- depth_rounder(df = dat_rename,
+                              interval = target_interval,
+                              tolerance = 0.2)                  # Adds 'obs_depth' and 'flag_depth' columns
+
+dat_stationary <- is_stationary(df=dat_rnddepth,
+                                sd_thresh = sd_depthrange_thresh,
+                                stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
+                                sampling_int = target_interval,
+                                drop_cols = F,
+                                plot = TRUE)
+
+
+try <- troll_run_stats(dat_stationary)
 
 # Pull out the sampling interval
 sampling_interval_calculated <- try$samp_int
 
 if(!all(target_depths %in% try$final_depths)) {
-  stop('The final depths extracted from raw data (rounded to the interval between target depths) do not match the target depths.\n\nCheck the specification of target depths and the tolerance used to round raw depth data.\n\nOften this is caused by too strict of a depth tolerance relative to imperfect field data.')
+  missing_depths <- sort(setdiff(target_depths, try$final_depths), decreasing = FALSE)
+  extra_depths   <- sort(setdiff(try$final_depths, target_depths), decreasing = FALSE)
+
+  target_sorted  <- sort(target_depths, decreasing = FALSE)
+  final_sorted   <- sort(try$final_depths, decreasing = FALSE)
+
+  if (length(missing_depths) > 0 || length(extra_depths) > 0) {
+    stop(
+      paste0(
+        "Mismatch between expected and extracted depths.\n\n",
+        "Target depths:    ", paste(target_sorted, collapse = ", "), "\n",
+        "Extracted depths: ", paste(final_sorted, collapse = ", "), "\n\n",
+        if (length(missing_depths) > 0)
+          paste0("Missing depths:   ", paste(missing_depths, collapse = ", "), "\n") else "",
+        if (length(extra_depths) > 0)
+          paste0("Unexpected depths: ", paste(extra_depths, collapse = ", "), "\n") else "",
+        "\nLikely causes:\n",
+        "- Depth rounding tolerance is too strict for field variability.\n",
+        "- Target depths are irregular or do not match the sampling interval.\n",
+        "- Stationary detection removed too much data (check 'stationary_secs' or rolling window).\n\n",
+        "Review depth tolerance, stationary thresholds, and raw depth trace."
+      )
+    )
+  }
 }
+
+#############################################
+ggplot2::ggplot(data = dat_rename,ggplot2::aes(x=DateTime,y=depth_m)) +
+  ggplot2::geom_point() + #ggplot2::geom_path()
+  ggplot2::geom_hline(yintercept = seq(0,8,1),lty=2,col='red')
 
 dat2 <- dat |>
   remove_jiggle(sampling_int = sampling_interval_calculated,
