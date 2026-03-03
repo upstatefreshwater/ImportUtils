@@ -552,6 +552,87 @@ is_stationary <- function(df,
 
 
 # remove_jiggle ----
+#' Remove or Flag Initial Stabilization ("Jiggle") Periods from Stationary Blocks
+#'
+#' Identifies and flags (or optionally removes) the initial stabilization
+#' period immediately following the start of stationary blocks in high-frequency
+#' depth data.
+#'
+#' When a sonde becomes stationary, field protocols may require briefly
+#' "jiggling" or repositioning the instrument before allowing measurements
+#' to stabilize. This function removes or flags the first \code{jiggle_secs}
+#' seconds of each stationary block.
+#'
+#' @param df A data frame containing a stationary flag column (e.g.,
+#' produced by \code{is_stationary()}).
+#'
+#' @param sampling_int Numeric. Sampling interval in seconds.
+#' Must be a positive value.
+#'
+#' @param jiggle_secs Numeric. Number of seconds at the beginning of each
+#' stationary block to treat as stabilization ("jiggle") time.
+#' Default = 15.
+#'
+#' @param mode Character. Determines behavior:
+#' \itemize{
+#'   \item \code{"flag"} (default) — Retain all observations and add
+#'   jiggle-related columns.
+#'   \item \code{"remove"} — (If implemented downstream) Remove jiggle
+#'   observations from the returned data frame.
+#' }
+#'
+#' @param stationary_flag_col Unquoted name of the column indicating
+#' stationary status. Default is \code{is_stationary_status}.
+#'
+#' @param stationary_flag_thresh Numeric threshold above which values in
+#' \code{stationary_flag_col} are considered fully stationary.
+#' Default = 998 (consistent with \code{is_stationary()} where 999
+#' indicates stationary).
+#'
+#' @details
+#' The function:
+#' \enumerate{
+#'   \item Identifies consecutive blocks of stationary and moving observations.
+#'   \item Computes the number of observations corresponding to
+#'         \code{jiggle_secs} based on \code{sampling_int}.
+#'   \item Flags observations occurring after the stabilization period
+#'         within stationary blocks.
+#' }
+#'
+#' The number of observations removed per stationary block is:
+#'
+#' \deqn{n\_jiggle = ceiling(jiggle\_secs / sampling\_int)}
+#'
+#' If \code{sampling_int} is not positive numeric, the function stops with
+#' an error.
+#'
+#' @return
+#' The input data frame with additional columns:
+#'
+#' \describe{
+#'   \item{stationary_block_id}{Identifier for consecutive stationary/moving blocks.}
+#'   \item{stationary_block_index}{Index of observation within each block.}
+#'   \item{post_jiggle}{Logical indicating observations occurring after
+#'   the stabilization period within stationary blocks.}
+#'   \item{n_obs_post_jig}{Number of post-jiggle observations in each
+#'   stationary block (0 for moving observations).}
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' df_flagged <- remove_jiggle(df,
+#'                              sampling_int = 2,
+#'                              jiggle_secs = 15)
+#'
+#' # Count usable stationary observations
+#' df_flagged |>
+#'   dplyr::filter(post_jiggle)
+#' }
+#'
+#' @importFrom dplyr mutate group_by ungroup row_number n consecutive_id
+#' @importFrom rlang ensym as_name
+#' @export
+
 remove_jiggle <- function(df,
                           sampling_int,
                           jiggle_secs = 15,
@@ -566,6 +647,11 @@ remove_jiggle <- function(df,
     warning(
       "No stationary flag column in input dataframe."
     )
+  }
+
+  # Check sampling_int is a positive integer
+  if (!is.numeric(sampling_int) || sampling_int <= 0) {
+    stop("sampling_int must be a positive numeric value.") ## Note for DA to check this makes sense
   }
 
   n_jiggle <- ceiling(jiggle_secs / sampling_int)                      # number of observations to throw out for "jiggle period"
