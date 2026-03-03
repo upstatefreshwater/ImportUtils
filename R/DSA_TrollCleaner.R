@@ -227,6 +227,74 @@ remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity
 }
 
 # depth_rounder ----
+#' Round and Flag Depth Observations to Regular Intervals
+#'
+#' Rounds depth measurements to the nearest regular interval and flags
+#' observations that deviate from the interval by more than a specified tolerance.
+#' Designed for vertical profiling data (e.g., lake sonde casts) where
+#' measurements should align with standardized depth increments.
+#'
+#' The function:
+#' \itemize{
+#'   \item Rounds the input depth column to the decimal precision implied by `tolerance`
+#'   \item Assigns each observation to the nearest `interval`
+#'   \item Flags observations whose deviation from the nearest interval exceeds `tolerance`
+#'   \item Returns the modified data frame with standardized depth values
+#' }
+#'
+#' Floating-point comparison uses a small machine-precision buffer
+#' (`sqrt(.Machine$double.eps)`) to avoid false flagging due to
+#' numerical representation error.
+#'
+#' @param df A data frame containing depth measurements.
+#' @param depth_col Unquoted name of the depth column in `df`.
+#'   Uses tidy evaluation (e.g., `depth_m`).
+#' @param interval Numeric. The target regular depth spacing (e.g., `1` for 1 m
+#'   increments, `0.5` for half-meter increments). Must be positive.
+#' @param tolerance Numeric. Maximum allowable deviation from the nearest
+#'   interval before an observation is flagged. Must be non-negative.
+#'
+#' @details
+#' Depths are first rounded to the number of decimal places implied by
+#' `tolerance` to stabilize precision. The nearest interval is then calculated as:
+#'
+#' \deqn{round(depth / interval) * interval}
+#'
+#' Observations are flagged when:
+#'
+#' \deqn{|depth - nearest\_interval| > tolerance}
+#'
+#' Depths less than 0.5 (units assumed consistent with `interval`)
+#' are not flagged.
+#'
+#' Irregular depth intervals are not currently supported. If `interval`
+#' is `NULL`, the function stops with an error.
+#'
+#' @return
+#' A data frame with:
+#' \itemize{
+#'   \item `orig_depth`: Rounded original depth values
+#'   \item `obs_depth`: Depth values snapped to the nearest interval
+#'   \item `flag_depth`: Character column indicating `"flag"` when
+#'         deviation exceeds tolerance
+#' }
+#'
+#' All original columns in `df` are preserved.
+#'
+#' @examples
+#' library(dplyr)
+#'
+#' df <- tibble::tibble(
+#'   depth_m = c(0.3, 0.9, 1.2, 1.8, 2.21)
+#' )
+#'
+#' depth_rounder(df, depth_m, interval = 1, tolerance = 0.2)
+#'
+#' # Half-meter intervals
+#' depth_rounder(df, depth_m, interval = 0.5, tolerance = 0.1)
+#'
+#' @importFrom dplyr mutate case_when select
+#' @export
 depth_rounder <- function(df,
                           depth_col = depth_m,
                           interval = 1,
@@ -241,8 +309,15 @@ depth_rounder <- function(df,
     }
   }
 
+  if (!is.numeric(tolerance) || tolerance < 0){ # Checks tolerance is positive
+    stop("tolerance must be non-negative numeric")
+  }
+
   tol_dec <- decimalplaces(tolerance)
   if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,' is unrealistically small.'))
+
+  if (!is.numeric(interval) || interval <= 0){# Checks interval is positive
+    stop("interval must be positive numeric")}
 
   if(!is.null(interval)){ # If regular intervals enter this loop
   int_dec <- decimalplaces(interval)
@@ -250,21 +325,21 @@ depth_rounder <- function(df,
 
   data_out <- df |>
     dplyr::mutate(
-      obs_depth = round({{depth_col}}, tol_dec),                        # Only keep precision to tolerance level
-      nearest_interval = round(obs_depth / interval) * interval,        # This checks for closest given interval, allowing decimal intervals too
+      orig_depth = round({{depth_col}}, tol_dec),                        # Only keep precision to tolerance level
+      nearest_interval = round(orig_depth / interval) * interval,        # This checks for closest given interval, allowing decimal intervals too
       # Round the difference to 6 decimals to avoid floating-point issues
       flag_depth = dplyr::case_when(
-        obs_depth < 0.5 ~ '',
-        round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag', # This does the work
+        orig_depth < 0.5 ~ '',
+        abs(orig_depth - nearest_interval) > tolerance + .Machine$double.eps^0.5 ~ 'flag', # This does the work
         TRUE ~ ''
       ),
-      obs_depth = round(obs_depth / interval) * interval
+      obs_depth = round(orig_depth / interval) * interval
     ) |>
     dplyr::select(-nearest_interval)
   }
 
   if(is.null(interval)){
-    stop('DA needs to update the function to allow irregular intervals. I guess you are on your own!\nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
+    stop('Irregular interval support not implemented \nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
   }
 
 
