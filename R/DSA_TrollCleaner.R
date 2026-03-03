@@ -295,6 +295,7 @@ remove_bottomup_hitbottom <- function(data, turb_value = 50, stationary_velocity
 #'
 #' @importFrom dplyr mutate case_when select
 #' @export
+
 depth_rounder <- function(df,
                           depth_col = depth_m,
                           interval = 1,
@@ -366,6 +367,92 @@ strip_meta <- function(df) {
 }
 
 # troll_run_stats ----
+#' Summarize Sampling and Stationary Statistics for a Sonde Cast
+#'
+#' Computes basic run statistics for a profiling sonde cast, including
+#' sampling interval, cast duration, number of stationary periods exceeding
+#' a specified duration, and the rounded depths associated with those
+#' stationary periods.
+#'
+#' This function is intended for quality assurance and summary diagnostics
+#' of vertical profiling data where the instrument pauses at target depths.
+#'
+#' @param df A data frame containing cast data.
+#' @param datetime_col Unquoted name of the datetime column. Must be a
+#'   `POSIXct`, `POSIXlt`, or other time-compatible object.
+#' @param stationary_col Unquoted name of the column indicating stationary
+#'   status. This column is expected to contain the number of seconds the
+#'   sonde has been stationary at each observation.
+#' @param round_depth_col Unquoted name of the rounded depth column
+#'   (e.g., output from a depth rounding function). Used to determine
+#'   depths at which the sonde was stationary.
+#' @param stationary_secs Numeric. Minimum number of seconds the sonde must
+#'   be stationary for a period to be counted as a valid stationary depth.
+#'   Default is 30 seconds.
+#' @param target_depths Optional numeric vector of expected target depths.
+#'   If provided, values must be evenly spaced according to
+#'   `target_depth_int`. Used for validation only.
+#' @param target_depth_int Numeric. Expected increment between consecutive
+#'   values in `target_depths`. Default is 1 (e.g., 1 meter intervals).
+#'
+#' @details
+#' The function calculates:
+#' \itemize{
+#'   \item Median sampling interval (seconds)
+#'   \item Total cast duration (minutes)
+#'   \item Number of stationary periods exceeding `stationary_secs`
+#'   \item Unique rounded depths associated with stationary periods
+#' }
+#'
+#' Sampling interval consistency is assessed by checking whether time
+#' differences between consecutive observations are uniform. A warning is
+#' issued if inconsistent sampling intervals are detected.
+#'
+#' If `target_depths` is provided, the function verifies that it is a numeric
+#' vector and that consecutive differences match `target_depth_int` within
+#' machine precision tolerance (`sqrt(.Machine$double.eps)`).
+#'
+#' If required columns (`stationary_col` or `round_depth_col`) are not
+#' present in `df`, a warning is issued and corresponding outputs are
+#' returned as `NA`.
+#'
+#' @return
+#' A named list with elements:
+#' \describe{
+#'   \item{samp_int}{Median sampling interval in seconds.}
+#'   \item{cast_len}{Total cast duration in minutes.}
+#'   \item{num_stationary_depths}{Number of stationary periods exceeding
+#'         `stationary_secs`.}
+#'   \item{final_depths}{Unique rounded depths corresponding to stationary
+#'         periods exceeding `stationary_secs`.}
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' troll_run_stats(
+#'   df = cast_data,
+#'   datetime_col = DateTime,
+#'   stationary_col = is_stationary_status,
+#'   round_depth_col = obs_depth,
+#'   stationary_secs = 30
+#' )
+#'
+#' # With expected depth targets
+#' troll_run_stats(
+#'   df = cast_data,
+#'   datetime_col = DateTime,
+#'   stationary_col = is_stationary_status,
+#'   round_depth_col = obs_depth,
+#'   stationary_secs = 30,
+#'   target_depths = seq(0, 20, by = 1),
+#'   target_depth_int = 1
+#' )
+#' }
+#'
+#' @importFrom dplyr pull consecutive_id mutate
+#' @importFrom rlang ensym as_name
+#' @export
+
 troll_run_stats <- function(df,
                             datetime_col = DateTime,
                             stationary_col = is_stationary_status,
@@ -384,16 +471,18 @@ troll_run_stats <- function(df,
       stop("`target_depths` must be a numeric vector or NULL.", call. = FALSE)
     }
 
-    depth_check <- diff(target_depths)
-    depth_check <- depth_check[!is.na(depth_check)]
+    if(target_depths >1){
+      depth_check <- diff(target_depths)
+      depth_check <- depth_check[!is.na(depth_check)]
 
-    tol <- sqrt(.Machine$double.eps) # make robust to floating point errors
+      tol <- sqrt(.Machine$double.eps) # make robust to floating point errors
 
-    if (!all(abs(depth_check - target_depth_int) < tol)) {
-      stop(
-        'Provided "target_depths" are not evenly incremented by "target_depth_int".',
-        call. = FALSE
-      )
+      if (!all(abs(depth_check - target_depth_int) < tol)) {
+        stop(
+          'Provided "target_depths" are not evenly incremented by "target_depth_int".',
+          call. = FALSE
+        )
+      }
     }
   }
 
@@ -403,7 +492,7 @@ troll_run_stats <- function(df,
   times <- df_stat |> dplyr::pull({{ datetime_col }})
   samp_int <-  as.numeric(median(diff(times), na.rm = TRUE), units = 'secs')      # Calculate the sampling interval
 
-  if (!length(unique(na.omit(diff(times)))) == 1) {
+  if (length(unique(na.omit(diff(times)))) != 1) {
     warning('Inconsistent sampling intervals detected.')
   }
 
@@ -439,7 +528,7 @@ troll_run_stats <- function(df,
       )
     } else{
       final_stationary_depths <- dplyr::pull(df_stat, {{ round_depth_col }}) # These are all of the depths including repeats
-      stationary_dat <- cbind(stationary_dat, final_stationary_depths)        # Add to the previous dataframe
+      stationary_dat <- dplyr::mutate(final_stationary_depths = final_stationary_depths)        # Add to the previous dataframe
       # Unique values of the rounded depths during stationary periods
       depthvals_samples <- unique(stationary_dat$final_stationary_depths[stationary_dat$stationary_status > stationary_secs])
     }
