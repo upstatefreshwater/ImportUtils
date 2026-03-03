@@ -310,8 +310,15 @@ depth_rounder <- function(df,
     }
   }
 
+  if (!is.numeric(tolerance) || tolerance < 0){ # Checks tolerance is positive
+    stop("tolerance must be non-negative numeric")
+  }
+
   tol_dec <- decimalplaces(tolerance)
   if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,' is unrealistically small.'))
+
+  if (!is.numeric(interval) || interval <= 0){# Checks interval is positive
+    stop("interval must be positive numeric")}
 
   if(!is.null(interval)){ # If regular intervals enter this loop
   int_dec <- decimalplaces(interval)
@@ -319,21 +326,21 @@ depth_rounder <- function(df,
 
   data_out <- df |>
     dplyr::mutate(
-      obs_depth = round({{depth_col}}, tol_dec),                        # Only keep precision to tolerance level
-      nearest_interval = round(obs_depth / interval) * interval,        # This checks for closest given interval, allowing decimal intervals too
+      orig_depth = round({{depth_col}}, tol_dec),                        # Only keep precision to tolerance level
+      nearest_interval = round(orig_depth / interval) * interval,        # This checks for closest given interval, allowing decimal intervals too
       # Round the difference to 6 decimals to avoid floating-point issues
       flag_depth = dplyr::case_when(
-        obs_depth < 0.5 ~ '',
-        round(abs(obs_depth - nearest_interval), 6) > tolerance ~ 'flag', # This does the work
+        orig_depth < 0.5 ~ '',
+        abs(orig_depth - nearest_interval) > tolerance + .Machine$double.eps^0.5 ~ 'flag', # This does the work
         TRUE ~ ''
       ),
-      obs_depth = round(obs_depth / interval) * interval
+      obs_depth = round(orig_depth / interval) * interval
     ) |>
     dplyr::select(-nearest_interval)
   }
 
   if(is.null(interval)){
-    stop('DA needs to update the function to allow irregular intervals. I guess you are on your own!\nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
+    stop('Irregular interval support not implemented \nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
   }
 
 
