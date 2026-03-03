@@ -39,6 +39,17 @@ apply_trollname_schema <- function(data,
     }
   })
 
+  # Check for unknown column names (error)
+  unknown_cols <- names(data)[is.na(rename_map)]
+
+  if (length(unknown_cols)) {
+    stop(
+      "Unknown column(s) detected:\n  - ",
+      paste(unknown_cols, collapse = "\n  - "),
+      "\n\nUpdate `troll_column_dictionary` if these are valid new sensors."
+    )
+  }
+
   # Check for duplicated column names within the rename map to be applied as the new column names (error)
   dup_canonical <- rename_map[duplicated(rename_map)]
 
@@ -47,17 +58,6 @@ apply_trollname_schema <- function(data,
       "Multiple columns matched the same canonical name:\n",
       paste(unique(dup_canonical), collapse = "\n"),
       "\n\nCannot safely proceed."
-    )
-  }
-
-  # Check for unknown column names (error)
-  unknown_cols <- names(data)[is.na(rename_map)]
-
-  if (length(unknown_cols)) {
-    stop(
-      "Unknown column(s) detected:\n",
-      paste(unknown_cols, collapse = "\n"),
-      "\n\nUpdate troll_column_dictionary if these are valid new sensors."
     )
   }
 
@@ -210,7 +210,8 @@ rename_trollcols <- function(df,
                              trollcomm_serialnums = trollCOMM_serials,
                              print_colnames =FALSE){
 
-  one <-   detect_trollcom(data = df,trollCOMM_serials = trollCOMM_serials)
+  one <-   detect_trollcom(data = df,
+                           trollCOMM_serials = trollCOMM_serials)
   two <-   normalize_raw_names(one)
   three <- apply_trollname_schema(two)
 

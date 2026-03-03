@@ -2,7 +2,7 @@
 trollCOMM_serials <- c(1151975,1153542)
 
 troll_column_dictionary <- tibble::tribble(
-  ~pattern,                                  ~canonical,                ~required,   ~meta,
+  ~pattern,                                  ~canonical,                ~required,  ~meta,
 
   # Required core
   "^Date Time$",                              "DateTime",                TRUE,      FALSE,
@@ -19,12 +19,14 @@ troll_column_dictionary <- tibble::tribble(
   "^Chlorophyll-a Fluorescence",              "chlorophyll_RFU",         FALSE,     FALSE,
   "^BGA-PC Fluorescence",                     "bga_fluorescence_RFU",    FALSE,     FALSE,
   "^Depth to Water",                          "depth_to_water_m",        FALSE,     FALSE,
+  "^ORP",                                     "ORP_mv",                  FALSE,     FALSE,
 
   # Instrument metadata
   "^External Voltage",                        "external_voltage_V",      FALSE,     TRUE,
   "^Battery Capacity",                        "battery_capacity_per",    FALSE,     TRUE,
-  "^Barometric Pressure \\(mbar\\)",          "barometric_pressure_mbar",FALSE,     TRUE,
+  "^Pressure \\(psi\\)",                      "water_pressure_psi",      FALSE,     TRUE,
   "^Barometric Pressure \\(mm Hg\\)",         "barometric_pressure_mmHg",FALSE,     TRUE,
+  "^Barometric Pressure \\(mbar\\)",          "barometric_pressure_mbar",FALSE,     TRUE,
   "^Latitude",                                "latitude_deg",            FALSE,     TRUE,
   "^Longitude",                               "longitude_deg",           FALSE,     TRUE,
   "^Marked$",                                 "marked_flag",             FALSE,     TRUE,
