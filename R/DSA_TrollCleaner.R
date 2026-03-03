@@ -122,7 +122,7 @@ rename_cols <- function(data,
   # Detect which columns exist in the data
   existing_cols <- base::intersect(names(data), allposs_troll_colnames)
 
-  # Detect unkown columns
+  # Detect unknown columns
   unknown_cols <- setdiff(names(data), allposs_troll_colnames)
 
   if (length(unknown_cols)) { # Implicitly this says has to be >0
@@ -147,22 +147,20 @@ rename_cols <- function(data,
       )
     )
   }
-  #START HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   # optional_cols <- setdiff(existing_cols, required_cols)
-
-  # Checks required Depth column is present
-  required <- c("Depth (m)")
-
 
   # Check that there are more columns recorded besides Date Time and Depth
   if(ncol(data) < 3){message("Only parameters are 'Date Time' and 'Depth (m)'")}
 
+
   # Selecting ONLY necessary parameters & Renaming them
-  param_col <- c("Date Time", "Depth (m)", "Temperature (°C)", "Specific Conductivity (µS/cm)", "pH (pH)", "pH mV (mV)",
-                 "RDO Concentration (mg/L)", "RDO Saturation (%Sat)", "Turbidity (NTU)", "ORP (mV)",
-                 "Chlorophyll-a Fluorescence (RFU)", "BGA-PC Fluorescence (RFU)", "Pressure (psi)",
-                 "Latitude (°)", "Longitude (°)", "Marked")
+  orig_colnames <- allposs_troll_colnames                                        # From internal dataset
+    # c("Date Time", "Depth (m)", "Temperature (°C)", "Specific Conductivity (µS/cm)", "pH (pH)", "pH mV (mV)",
+    #              "RDO Concentration (mg/L)", "RDO Saturation (%Sat)", "Turbidity (NTU)", "ORP (mV)",
+    #              "Chlorophyll-a Fluorescence (RFU)", "BGA-PC Fluorescence (RFU)", "Pressure (psi)",
+    #              "Latitude (°)", "Longitude (°)", "Marked")
+
   param_rename <- c(DateTime = "Date Time", depth_m = "Depth (m)", temperature_C = "Temperature (°C)",
                     sp_conductivity_uScm = "Specific Conductivity (µS/cm)", pH_units = "pH (pH)",
                     pH_mV = "pH mV (mV)", DO_mgL = "RDO Concentration (mg/L)", DO_per = "RDO Saturation (%Sat)",
@@ -171,7 +169,7 @@ rename_cols <- function(data,
                     pressure_psi = "Pressure (psi)", latitude_deg = "Latitude (°)", longitude_deg = "Longitude (°)")
   ## ERROR: Check that ^^ are all the important parameters that are wanted!! ##
   data <- data |>
-    dplyr::select(any_of(param_col)) |>
+    dplyr::select(any_of(orig_colnames)) |>
     dplyr::rename(any_of(param_rename))
 
   #List the Columns in the File for the Record
