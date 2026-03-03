@@ -412,7 +412,7 @@ troll_run_stats <- function(df,
       )
     } else{
       final_stationary_depths <- dplyr::pull(df_stat, {{ round_depth_col }}) # These are all of the depths including repeats
-      stationary_dat <- dplyr::mutate(final_stationary_depths = final_stationary_depths)        # Add to the previous dataframe
+      stationary_dat$final_stationary_depths <- final_stationary_depths       # Add to the previous dataframe
       # Unique values of the rounded depths during stationary periods
       depthvals_samples <- unique(stationary_dat$final_stationary_depths[stationary_dat$stationary_status > stationary_secs])
     }
