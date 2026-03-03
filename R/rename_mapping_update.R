@@ -1,4 +1,4 @@
-column_dictionary <- tibble::tribble(
+troll_column_dictionary <- tibble::tribble(
   ~pattern,                                  ~canonical,                ~required,
 
   # Required core
@@ -27,15 +27,15 @@ column_dictionary <- tibble::tribble(
   "^Trollcom_temperature_C$",                     "Trollcom_temperature_C",  FALSE
 )
 
-# column_dictionary
+# troll_column_dictionary
 
 apply_schema <- function(data) {
 
   # For each column in the data, find a regex pattern from the dictionary, then replace it with the canonical version
   rename_map <- purrr::map_chr(names(data), function(col) {
 
-    matches <- column_dictionary[
-      stringr::str_detect(col, column_dictionary$pattern),
+    matches <- troll_column_dictionary[
+      stringr::str_detect(col, troll_column_dictionary$pattern),
     ]
 
     if (nrow(matches) == 1) {
@@ -45,7 +45,7 @@ apply_schema <- function(data) {
     }
   })
 
-  # Check for duplicated column names after renaming
+  # Check for duplicated column names within the rename map to be applied as the new column names
   dup_canonical <- rename_map[duplicated(rename_map)]
 
   if (length(dup_canonical)) {
@@ -63,14 +63,14 @@ apply_schema <- function(data) {
     stop(
       "Unknown column(s) detected:\n",
       paste(unknown_cols, collapse = "\n"),
-      "\n\nUpdate column_dictionary if these are valid new sensors."
+      "\n\nUpdate troll_column_dictionary if these are valid new sensors."
     )
   }
 
   names(data) <- rename_map
 
   # ---- Required columns check ----
-  required <- column_dictionary$canonical[column_dictionary$required]
+  required <- troll_column_dictionary$canonical[troll_column_dictionary$required]
 
   missing <- setdiff(required, names(data))
 
@@ -152,6 +152,21 @@ detect_trollcom <- function(data,
     return(data)
   }
 }
-one <- detect_trollcom(data = dat,trollCOMM_serials = trollCOMM_serials)
-two <- normalize_raw_names(one)
-three <- apply_schema(two)
+
+rename_trollcols <- function(df,
+                             trollcomm_serialnums = trollCOMM_serials,
+                             print_colnames =FALSE){
+  one <- detect_trollcom(data = dat,trollCOMM_serials = trollCOMM_serials)
+  two <- normalize_raw_names(one)
+  three <- apply_schema(two)
+
+  if(print_colnames){
+    column_list <- paste(colnames(three))
+    message("The CSV has Columns:\n", paste(column_list, collapse = "\n"))
+  }
+
+  return(three)
+}
+
+rename_trollcols(dat,
+                 print_colnames = T)
