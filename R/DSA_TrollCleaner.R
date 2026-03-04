@@ -924,6 +924,115 @@ troll_rollRange <- function(df,
 
 
 # pH --------
+#' Identify Chemically Stable pH Periods Within Stationary Blocks
+#'
+#' Determines stable pH observations within stationary, post-jiggle periods
+#' by iteratively fitting a linear slope (pH vs. time) and retaining only
+#' observations where the absolute slope falls below a specified threshold.
+#'
+#' This function is designed to be used after:
+#' \itemize{
+#'   \item \code{is_stationary()} — to define stationary blocks
+#'   \item \code{remove_jiggle()} — to remove initial probe stabilization time
+#' }
+#'
+#' @param df A data frame containing at minimum the following columns:
+#' \itemize{
+#'   \item \code{DateTime} (POSIXct)
+#'   \item \code{depth_m}
+#'   \item \code{obs_depth}
+#'   \item \code{stationary_block_id}
+#'   \item \code{is_stationary_status}
+#'   \item \code{post_jiggle}
+#'   \item \code{pH_units}
+#' }
+#'
+#' @param min_n Numeric. Minimum number of observations required when
+#' calculating slopes and determining stable periods.
+#' If the slope threshold is never met, the final \code{min_n}
+#' observations in each stationary block are retained.
+#' Default = 5.
+#'
+#' @param sampling_int Numeric. Sampling interval in seconds.
+#' (Currently used for validation and documentation consistency.)
+#' Default = 2.
+#'
+#' @param slope_thresh Numeric. Maximum allowable absolute pH slope
+#' (pH units per minute) for observations to be considered stable.
+#' Default = 0.01.
+#'
+#' @param stationary_thresh Numeric. Threshold applied to
+#' \code{is_stationary_status} for identifying stationary observations.
+#' Default = 998.
+#'
+#' @details
+#' For each \code{stationary_block_id}, the function:
+#'
+#' \enumerate{
+#'   \item Filters to observations where:
+#'     \itemize{
+#'       \item \code{post_jiggle == TRUE}
+#'       \item \code{is_stationary_status > stationary_thresh}
+#'       \item \code{pH_units} is not \code{NA}
+#'     }
+#'   \item Computes time in minutes relative to the first observation
+#'         within each stationary block.
+#'   \item Iteratively fits a slope of pH vs. time using an analytical
+#'         covariance-based calculation:
+#'
+#'         \deqn{slope = cov(t, pH) / var(t)}
+#'
+#'         Starting with the full block and sequentially removing the
+#'         earliest observation until only \code{min_n} rows remain.
+#'   \item Identifies the first instance where
+#'         \code{|slope| <= slope_thresh}.
+#' }
+#'
+#' Selection logic:
+#'
+#' \itemize{
+#'   \item If the slope threshold is never met, only the final
+#'         \code{min_n} observations are retained.
+#'   \item If all slopes have the same sign (monotonic trend),
+#'         only the final \code{min_n} observations are retained.
+#'   \item Otherwise, all observations from the first threshold-meeting
+#'         slope onward are retained (provided at least \code{min_n}
+#'         observations remain).
+#' }
+#'
+#' The function returns the original data frame with appended slope
+#' diagnostics for retained observations.
+#'
+#' @return
+#' The original data frame with additional columns (where applicable):
+#'
+#' \describe{
+#'   \item{n_used}{Number of observations used in slope calculation.}
+#'   \item{slope}{Estimated pH slope (units per minute).}
+#'   \item{n_dropped}{Number of leading observations removed during iteration.}
+#'   \item{i}{Row index within stationary block.}
+#'   \item{meets_thresh}{Logical flag indicating whether slope met threshold.}
+#' }
+#'
+#' Rows outside retained stable periods will have \code{NA} values for
+#' slope diagnostics.
+#'
+#' @examples
+#' \dontrun{
+#' df_stable <- pH_stable(df,
+#'                        min_n = 5,
+#'                        slope_thresh = 0.005)
+#'
+#' # Keep only chemically stable pH observations
+#' df_stable |>
+#'   dplyr::filter(meets_thresh)
+#' }
+#'
+#' @importFrom dplyr select filter group_by mutate group_split ungroup bind_rows left_join
+#' @importFrom tibble tibble
+#' @export
+
+
 # For each stationary block, after the jiggle period, repeatedly fit a linear trend of pH vs time, dropping early observations one-by-one, until only min_n points remain.
 # Then, based on slope behavior, decide how many of the final points should be kept as “stable”.
 
@@ -933,19 +1042,6 @@ pH_stable <- function(df,
                       slope_thresh = 0.01,     # units/minute
                       stationary_thresh = 998){
   # 1. Input checks ----
-  # You check required columns. Good.
-  #
-  # But you should also validate:
-  #
-  #   min_n >= 1
-  #
-  # sampling_int > 0
-  #
-  # slope_thresh >= 0
-  #
-  # stationary_thresh numeric
-  #
-  # Package code should fail early and loudly.
 
 req_cols <- c('DateTime','depth_m','obs_depth','stationary_block_id','is_stationary_status','post_jiggle','pH_units')
 
@@ -953,6 +1049,12 @@ if(!all(req_cols %in% names(df))){
   missingCols <- req_cols[!req_cols %in% names(df)]
   stop(paste("Missing columns:", paste(missingCols, collapse = ", ")))
 }
+
+if(!is.numeric(min_n) || min_n < 1) stop("min_n must be numeric >= 1")
+if(!is.numeric(sampling_int) || sampling_int <= 0) stop("sampling_int must be > 0")
+if(!is.numeric(slope_thresh) || slope_thresh < 0) stop("slope_thresh must be >= 0")
+if(!is.numeric(stationary_thresh)) stop("stationary_thresh must be numeric")
+
   # 2. Data Manipulation ----
 
   stable_groups_split <-
@@ -1001,7 +1103,7 @@ if(!all(req_cols %in% names(df))){
       x_var <- stable_group_dat$pH_units
       y_var <- stable_group_dat$t
 
-      slope_fit <- stats::cov(x_var, y_var) / stats::var(x_var)
+      slope_fit <- stats::cov(y_var, x_var) / stats::var(x_var)
 
       group_out$slope[j] <- slope_fit
       group_out$n_dropped[j] <- dropped
