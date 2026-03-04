@@ -5,7 +5,7 @@ source('R/rename_trollcols.R')
 # 1) This is the skeleton of the main function ----
 median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
-sd_depthrange_thresh <- 0.05 # This is the threshold for the rolling range SD in meters
+sd_depthrange_thresh <- 0.15 # This is the threshold for the rolling range SD in meters
 target_depths <- seq(0,7,1)
 stationary_time_thresh <- 15 # Consecutive seconds without sonde movmement to be considered "stationary"
 rolling_range_secs <- 10     # Window size used to compile rolling ranges
