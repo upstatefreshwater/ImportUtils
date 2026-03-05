@@ -7,9 +7,10 @@ sensor_stable <- function(df,
                           stationary_thresh = 998,
                           remove_jiggle = TRUE){
 
-  # 0. Extract value column data and value column name using tidy eval
+  # 0. Extract value column data and value column name using tidy eval ----
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
+  value_flag_col <- paste(value_name,"_stable")
   # 1. Input checks ----
 
   req_cols <- c('DateTime','depth_m','obs_depth','stationary_block_id','is_stationary_status',value_name) # 'depth_m',
@@ -57,7 +58,7 @@ sensor_stable <- function(df,
     dplyr::group_split()
   # return(dat_grouped)
 
-  # 3. Compute slope statistics.
+  # 3. Loop over grouped (stationary + post_jiggle) data, compute range and slope stats ----
   #    Start with entire post-jiggle period, re-calculate dropping an obs. each time until min_n is reached
 
   # Iterate across each of the stable groups data
@@ -88,6 +89,12 @@ sensor_stable <- function(df,
       range_ok = FALSE
     )
 
+    # Add sensor flag where both slope/range thresholds are met, This dynamically allows different sensor names
+    group_out[[value_flag_col]] <- FALSE
+
+    # **Reset good_flag per group** (marker to keep final "_stable" flat as TRUE once one row meets range + slope thresholds combined)
+    good_flag <- FALSE
+
     # Set min_n rows slope and ranke OK flags to keep data if threshold is never met
     if(nrow(group_out) < min_n){
       msg_depth <- unique(stable_group_dat$obs_depth)
@@ -98,7 +105,7 @@ sensor_stable <- function(df,
 
     group_out$slope_ok[tailstart:nrow(group_out)] <- TRUE
     group_out$range_ok[tailstart:nrow(group_out)] <- TRUE
-
+    group_out[[value_flag_col]][tailstart:nrow(group_out)] <- TRUE
 
     # assign sensor data and time to variables
     x_all <- stable_group_dat$t
@@ -146,12 +153,21 @@ sensor_stable <- function(df,
       group_out$n_dropped[win_start] <- win_start - 1
       group_out$n_used[win_start] <- length(idx)
 
-      if(abs(slope_fit) <= slope_thresh) {
+      # Flag columns that meet slope/range
+      slope_good <- abs(slope_fit) <= slope_thresh
+      if(slope_good) {
         group_out$slope_ok[win_start] <- TRUE
       }
 
-      if(win_range <= range_thresh){
+      range_good <- win_range <= range_thresh
+      if(range_good){
         group_out$range_ok[win_start] <- TRUE
+      }
+
+      # Combined flag if both conditions are met
+      if((slope_good && range_good) || good_flag){
+        group_out[[value_flag_col]][win_start] <- TRUE
+        good_flag <- TRUE
       }
 
     }
