@@ -103,14 +103,14 @@ p1/p2
 
 #################################
 sensor_stable <- function(df,
-                      value_col = DO_mgL,
+                      value_col = pH_units,
                       min_n = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
                       sampling_int = 2,        # seconds
-                      slope_thresh = 0.01,     # units/minute
+                      slope_thresh = 0.05,     # units/minute
                       stationary_thresh = 998,
                       remove_jiggle = TRUE){
 
-  # 0. Extract value column data using tidy eval and value column name
+  # 0. Extract value column data and value column name using tidy eval
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
   # 1. Input checks ----
@@ -141,7 +141,6 @@ sensor_stable <- function(df,
       !is.na(.data[[value_col]])
     )
 
-
   # If jiggle period is flagged in the "post_jiggle" column, and user wishes to remove those rows of data
   if (remove_jiggle && jiggle_check) {
     dat_base <- dat_base |>
@@ -157,7 +156,7 @@ sensor_stable <- function(df,
     dplyr::group_by(stationary_block_id) |>
     dplyr::mutate(
       t = as.numeric(difftime(DateTime, DateTime[1], units = "mins"))
-    )
+    ) |>
     dplyr::group_split()
 
     # 3. Compute slope statistics.
@@ -166,7 +165,7 @@ sensor_stable <- function(df,
   # Iterate across each of the stable groups data
   out <- tibble::tibble()
 
-  for (i in seq_along(dat_grouped)) {
+  for (i in seq_along(dat_grouped)) { # seq_along gives list length as 1:length(list)
 
     stable_group_dat <- dat_grouped[[i]]                    # Extract one stable group of data
 
@@ -185,24 +184,25 @@ sensor_stable <- function(df,
     dropped <- 0
 
     # Calculate slope starting using all data, then take one away until only min_n rows are left
+    # Right now calculate for every iteration, once proven, we can drop to <thresholds if we want to speed up processing
     while (nrow(stable_group_dat)>=min_n) {
       # fit <- lm(pH_units ~ t, data = stable_group_dat)                            # fit linear regression across entire data
       # slope_fit <- coef(fit)[["t"]]                                # extract the slope
 
       # Compute slope analytically to speed up processing time
-      x_var <- stable_group_dat[[value_name]]
-      y_var <- stable_group_dat$t
+      x_var <- stable_group_dat$t
+      y_var <- stable_group_dat[[value_name]]
 
-      v <- stats::var(y_var)
+      v <- stats::var(x_var) # compute sensor data variance
 
+      # Wrapped in protection if someeone specifies min_n = 1
       slope_fit <- if (is.na(v) || v == 0) {
         NA_real_
         warning(paste0("Single datapoint used for ",unique(stable_group_dat$obs_depth),", slope could not be calculated"))
       } else {
-        stats::cov(y_var, x_var) / v
+        stats::cov(x_var, y_var) / v
+        # coef(lm(y_var~x_var))[2]
       }
-
-      # slope_fit <- stats::cov(y_var, x_var) / stats::var(y_var)
 
       group_out$slope[j] <- slope_fit
       group_out$n_dropped[j] <- dropped
@@ -259,4 +259,13 @@ sensor_stable <- function(df,
 
 
 
+xx <-
+sensor_stable(dat_jiggle);xx
 
+
+yy <- xx |>
+  dplyr::group_by(stationary_block_id) |>
+  dplyr::mutate(
+    t = as.numeric(difftime(DateTime, DateTime[1], units = "mins"))
+  )
+dplyr::group_split()

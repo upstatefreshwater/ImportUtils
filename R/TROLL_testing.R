@@ -119,7 +119,7 @@ ph_testdat <- dat3 |>
 # 2. Exploratory plots for other params ----
 library(ggplot2)
 pdat <- dat3 |>
-  dplyr::filter() # only keeps "stable" data after the "jiggle" period
+  dplyr::filter(is_stationary_status&post_jiggle) # only keeps "stable" data after the "jiggle" period
 
 ggplot(data = pdat,
        aes(x=seq_len(nrow(pdat)),
