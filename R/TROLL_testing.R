@@ -19,8 +19,8 @@ if(length(target_interval)!=1){
 }
 
 dat_read <-
-  # read_datafile('inst/extdata/2025-09-16_LT1.csv') |>
-  read_datafile('inst/extdata/2025-05-07_QL2.csv')
+  read_datafile('inst/extdata/2025-09-16_LT1.csv')
+  # read_datafile('inst/extdata/2025-05-07_QL2.csv')
 
 dat_rename <-   rename_trollcols(dat_read)                   # Makes pretty and standardized column names
 
@@ -73,22 +73,23 @@ ggplot2::ggplot(data = dat_rename,ggplot2::aes(x=DateTime,y=depth_m)) +
   ggplot2::geom_point() + #ggplot2::geom_path()
   ggplot2::geom_hline(yintercept = seq(0,8,1),lty=2,col='red')
 
-dat2 <- dat |>
+dat_jiggle <- dat_stationary |>
   remove_jiggle(sampling_int = sampling_interval_calculated,
                 jiggle_secs = shake_time)
 
 # Check for number of obs to calculate median
-check_dat <- dat2 |>
+check_dat <- dat_jiggle |>
+  dplyr::ungroup() |>
   dplyr::filter(post_jiggle==TRUE) |>
   dplyr::group_by(obs_depth) |>
-  dplyr::summarise(n_obs_median = unique(n_obs_post_jig)) |>
+  dplyr::reframe(n_obs_median = unique(n_obs_post_jig)) |>
   dplyr::mutate(times_avail = n_obs_median * sampling_interval_calculated,
                 flag_nobs_toofew = ifelse(times_avail < median_secs,
                                           times_avail,
                                           FALSE)) |>
   dplyr::ungroup()
 
-if(any(check_dat$flag_nobs_toofew == 0)) {
+if(any(check_dat$flag_nobs_toofew)) {
   bad_depths <- check_dat$obs_depth[check_dat$flag_nobs_toofew!=0]
   bad_times <- check_dat$times_avail[check_dat$flag_nobs_toofew!=0]
 
@@ -107,7 +108,7 @@ if(any(check_dat$flag_nobs_toofew == 0)) {
   warning(msg, call. = FALSE)
 }
 
-dat3 <- dat2 |>
+dat3 <- dat_jiggle |>
   troll_rollRange(sampling_int = sampling_interval_calculated)
 
 
