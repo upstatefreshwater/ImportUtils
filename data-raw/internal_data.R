@@ -20,6 +20,12 @@ troll_column_dictionary <- tibble::tribble(
   "^BGA-PC Fluorescence",                     "bga_fluorescence_RFU",    FALSE,     FALSE,
   "^Depth to Water",                          "depth_to_water_m",        FALSE,     FALSE,
   "^ORP",                                     "ORP_mv",                  FALSE,     FALSE,
+  "^Actual Conductivity \\(µS/cm\\)$",        "actual_conductivity_uScm",FALSE,     FALSE,
+  "^Salinity \\(PSU\\)$",                     "salinity_psu",            FALSE,     FALSE,
+  "^Resistivity \\(Ω⋅cm\\)$",                 "resistivity_ohmcm",       FALSE,     FALSE,
+  "^Density \\(g/cm³\\)$",                    "density_gcm",             FALSE,     FALSE,
+  "^Total Dissolved Solids \\(ppt\\)$",       "total_diss_solids_ppt",   FALSE,     FALSE,
+  "^Oxygen Partial Pressure \\(Torr\\)$",     "oxy_part_press_torr",     FALSE,     FALSE,
 
   # Instrument metadata
   "^External Voltage",                        "external_voltage_V",      FALSE,     TRUE,
@@ -30,7 +36,8 @@ troll_column_dictionary <- tibble::tribble(
   "^Latitude",                                "latitude_deg",            FALSE,     TRUE,
   "^Longitude",                               "longitude_deg",           FALSE,     TRUE,
   "^Marked$",                                 "marked_flag",             FALSE,     TRUE,
-  "^Trollcom_temperature_C$",                 "Trollcom_temperature_C",  FALSE,     TRUE
+  "^Trollcom_temperature_C$",                 "Trollcom_temperature_C",  FALSE,     TRUE,
+
 )
 
 usethis::use_data(
