@@ -1,11 +1,12 @@
 # Helpers currently live here:
 source('R/DSA_TrollCleaner.R')
 source('R/rename_trollcols.R')
+source('R/is_stationary.R')
 
 # 1) This is the skeleton of the main function ----
 median_secs <- 30
 shake_time <- 15             # aka "jiggle_secs"
-sd_depthrange_thresh <- 0.15 # This is the threshold for the rolling range SD in meters
+sd_depthrange_thresh <- 0.1 # This is the threshold for the rolling range SD in meters
 target_depths <- seq(0,7,1)
 stationary_time_thresh <- 15 # Consecutive seconds without sonde movmement to be considered "stationary"
 rolling_range_secs <- 10     # Window size used to compile rolling ranges
@@ -19,8 +20,8 @@ if(length(target_interval)!=1){
 }
 
 dat_read <-
-  read_datafile('inst/extdata/2025-09-16_LT1.csv')
-  # read_datafile('inst/extdata/2025-05-07_QL2.csv')
+  # read_datafile('inst/extdata/2025-09-16_LT1.csv')
+  read_datafile('inst/extdata/2025-05-07_QL2.csv')
 
 dat_rename <-   rename_trollcols(dat_read)                   # Makes pretty and standardized column names
 
@@ -29,10 +30,11 @@ dat_rnddepth <- depth_rounder(df = dat_rename,
                               tolerance = 0.2)                  # Adds 'obs_depth' and 'flag_depth' columns
 
 dat_stationary <- is_stationary(df=dat_rnddepth,
-                                sd_thresh = sd_depthrange_thresh,
+                                depth_range_threshold = sd_depthrange_thresh,
                                 stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
                                 sampling_int = target_interval,
-                                drop_cols = F,
+                                drop_cols = FALSE,
+                                window = 10,
                                 plot = TRUE)
 
 

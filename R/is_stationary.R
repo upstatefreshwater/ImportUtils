@@ -27,7 +27,7 @@
 #' @param datetime_col Unquoted name of the POSIXct datetime column.
 #' Default is \code{DateTime}.
 #'
-#' @param sd_thresh Numeric. Rolling standard deviation threshold (meters)
+#' @param depth_range_threshold Numeric. Rolling standard deviation threshold (meters)
 #' below which observations are considered stationary. Default = 0.05.
 #'
 #' @param window Integer. Number of observations in the rolling window
@@ -71,7 +71,7 @@
 #'
 #' If \code{drop_cols = FALSE}, the following additional columns are retained:
 #' \itemize{
-#'   \item \code{depth_sd}
+#'   \item \code{depth_range}
 #'   \item \code{is_stationary_initial}
 #'   \item \code{stationary_block_id}
 #'   \item \code{block_duration}
@@ -82,7 +82,7 @@
 #' df_out <- is_stationary(df,
 #'                         depth_col = depth_m,
 #'                         datetime_col = DateTime,
-#'                         sd_thresh = 0.03,
+#'                         depth_range_threshold = 0.03,
 #'                         stationary_secs = 20,
 #'                         plot = TRUE)
 #' }
@@ -95,7 +95,7 @@
 is_stationary <- function(df,
                           depth_col = depth_m,
                           datetime_col = DateTime,
-                          sd_thresh = 0.05,
+                          depth_range_threshold = 0.05,
                           window = 7,
                           stationary_secs = 30,
                           sampling_int = 0,
@@ -136,15 +136,15 @@ is_stationary <- function(df,
 
   out <- df |>
     dplyr::mutate(
-      depth_sd = zoo::rollapplyr({{ depth_col }},                                # 'right' means from the obs. look backwards n = window
+      depth_range = zoo::rollapplyr({{ depth_col }},                                # 'right' means from the obs. look backwards n = window
                                  width = window,
                                  FUN = function(x) if (all(!is.na(x))) max(x) - min(x) else NA, # Calculate the rolling SD of the window
                                  # na.rm = TRUE,
                                  fill = NA),
       is_stationary_initial = dplyr::if_else(
-        is.na(depth_sd),
+        is.na(depth_range),
         FALSE,
-        depth_sd < sd_thresh),                                                   # Sets is_stationary_initial based on only SD
+        depth_range < depth_range_threshold),                                                   # Sets is_stationary_initial based on only SD
       stationary_block_id = dplyr::consecutive_id(.data$is_stationary_initial)) |>          # assigns a unique id based on each time is_stationary_initial changes
     dplyr::group_by(.data$stationary_block_id) |>
     dplyr::mutate(
@@ -182,10 +182,10 @@ is_stationary <- function(df,
 
     p2 <- ggplot2::ggplot(out,
                           ggplot2::aes(x = seq_len(nrow(out)),
-                                       y = depth_sd)) +
+                                       y = depth_range)) +
       ggplot2::geom_line(ggplot2::aes(color = "Rolling SD",
                                       linetype = "Rolling SD")) +
-      ggplot2::geom_hline(ggplot2::aes(yintercept = sd_thresh,
+      ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold,
                                        color = "SD Threshold",
                                        linetype = "SD Threshold")) +
       ggplot2::scale_color_manual(
@@ -209,7 +209,7 @@ is_stationary <- function(df,
   }
 
   if (drop_cols) {                                                                # Remove intermediate columns
-    out <- dplyr::select(out, -c(depth_sd, is_stationary_initial, stationary_block_id, block_duration))
+    out <- dplyr::select(out, -c(depth_range, is_stationary_initial, stationary_block_id, block_duration))
   }
 
   return(out)
