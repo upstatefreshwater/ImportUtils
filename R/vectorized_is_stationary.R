@@ -1,11 +1,14 @@
-library(dplyr)
-library(zoo)
+# this needs to be tested/vetted/understood
+#
+# library(dplyr)
+# library(zoo)
+# library(patchwork)
+# library(ggplot2)
 
 is_stationary <- function(df,
                           depth_col = depth_m,
                           datetime_col = DateTime,
                           depth_range_threshold = 0.05,
-                          # window = 7,
                           stationary_secs = 30,
                           sampling_int = 0,
                           drop_cols = TRUE,
@@ -29,7 +32,7 @@ is_stationary <- function(df,
     samp_int <- sampling_int
   }
 
-  # Adjust window if it's bigger than dataset
+  # Compute window size in # of observations
   window <- ceiling(stationary_secs / samp_int)
   if(window > nrow(df)) {
     window <- nrow(df)
@@ -39,25 +42,23 @@ is_stationary <- function(df,
   # Minimum number of observations to be considered stationary
   min_obs <- ceiling(stationary_secs / samp_int)
 
-  # Compute rolling depth range
+  # Pull depth values
   depth_vals <- df |> dplyr::pull({{ depth_col }})
-  depth_range <- zoo::rollapply(
-    depth_vals,
-    width = window,
-    FUN = function(x) max(x, na.rm = TRUE) - min(x, na.rm = TRUE),
-    fill = NA,
-    align = "right"
-  )
 
-  # Initialize flag vector
+  # Rolling min and max
+  roll_min <- zoo::rollapply(depth_vals, width = window, FUN = min, fill = NA, align = "right")
+  roll_max <- zoo::rollapply(depth_vals, width = window, FUN = max, fill = NA, align = "right")
+  roll_range <- roll_max - roll_min
+
+  # Vectorized flagging of stationary points: any point within a window that meets threshold
   is_stationary_flag <- rep(FALSE, length(depth_vals))
-
-  # Flag **all points in the window** if depth range < threshold
-  for(i in seq_along(depth_range)) {
-    if(!is.na(depth_range[i]) && depth_range[i] < depth_range_threshold){
-      start_idx <- max(1, i - window + 1)
-      is_stationary_flag[start_idx:i] <- TRUE
-    }
+  # Only mark positions where rolling range < threshold
+  valid_idx <- which(!is.na(roll_range) & roll_range < depth_range_threshold)
+  if(length(valid_idx) > 0){
+    start_idx <- pmax(1, valid_idx - window + 1)
+    end_idx <- valid_idx
+    # Efficient vectorized assignment
+    is_stationary_flag[unlist(mapply(seq, start_idx, end_idx))] <- TRUE
   }
 
   # Identify consecutive blocks
@@ -72,7 +73,7 @@ is_stationary <- function(df,
     dplyr::mutate(
       block_duration = dplyr::n(),
       is_stationary_status = dplyr::case_when(
-        is_stationary_initial & block_duration >= min_obs ~ block_duration * samp_int,#999,
+        is_stationary_initial & block_duration >= min_obs ~ block_duration * samp_int,
         is_stationary_initial & block_duration < min_obs ~ block_duration * samp_int,
         TRUE ~ 0
       )
@@ -80,57 +81,41 @@ is_stationary <- function(df,
     dplyr::ungroup()
 
   if(plot){
-    # 1. Get all unique levels
+    # Line values at depths above the minimum stationary time
+    if('obs_depth' %in% names(df_out)){
+      stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status > 0])
+    } else {
+      stationary_depths <- unique(round(df_out$depth_m[df_out$is_stationary_status > 0], 1))
+    }
+    # Plotting as before
     levels_list <- as.character(unique(df_out$is_stationary_status))
     ncolors <- length(levels_list)
-
-    # 2. Generate random colors for everything first
-    # We name them so ggplot knows exactly which color goes to which level
     mycolors <- setNames(sample(colors(distinct = TRUE), ncolors), levels_list)
-
-    # 3. Explicitly overwrite your "known" values
     mycolors['999'] <- 'darkgreen'
     mycolors['0']   <- 'firebrick'
-    # 2. Visualize to verify the threshold
+
     p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = {{depth_col}})) +
       ggplot2::geom_line(alpha = 0.4) +
-      ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2, alpha = 0.3) +
-      ggplot2::scale_y_reverse() + # Depth plots usually go down
+      ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
+      ggplot2::scale_y_reverse() +
       ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
-      ggplot2::scale_color_manual(name = 'Seconds Stationary',
-                                  values = mycolors) +
+      ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
+      ggplot2::geom_hline(yintercept = stationary_depths, col = 'red',lty = 2) +
       ggplot2::theme_minimal()
 
-    p2 <- ggplot2::ggplot(df_out,
-                          ggplot2::aes(x = seq_len(nrow(df_out)),
-                                       y = depth_range)) +
-      ggplot2::geom_line(ggplot2::aes(color = "Rolling SD",
-                                      linetype = "Rolling SD")) +
-      ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold,
-                                       color = "SD Threshold",
-                                       linetype = "SD Threshold")) +
-      ggplot2::scale_color_manual(
-        name = "",
-        values = c("Rolling SD" = "red",
-                   "SD Threshold" = "black")
-      ) +
-      ggplot2::scale_linetype_manual(
-        name = "",
-        values = c("Rolling SD" = "solid",
-                   "SD Threshold" = "dashed")
-      ) +
-      ggplot2::labs(title = "Rolling Standard Deviation",
-                    y = "SD (m)",
-                    x = "Observation Index") +
+    p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
+      ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold, color = "Threshold", linetype = "Threshold")) +
+      ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
+      ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
+      ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
       ggplot2::theme_minimal()
 
-    # Combine the plots
     print(patchwork::wrap_plots(p1, p2, ncol = 1))
-
   }
 
-  if (drop_cols) {                                                                # Remove intermediate columns
-    df_out <- dplyr::select(df_out, -c(depth_range, is_stationary_initial, stationary_block_id, block_duration))
+  if(drop_cols){
+    df_out <- df_out |> dplyr::select(-c(is_stationary_initial, stationary_block_id, block_duration))
   }
 
   return(df_out)

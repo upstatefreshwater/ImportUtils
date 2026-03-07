@@ -20,8 +20,8 @@ if(length(target_interval)!=1){
 }
 
 dat_read <-
-  # read_datafile('inst/extdata/2025-09-16_LT1.csv')
-  read_datafile('inst/extdata/2025-05-07_QL2.csv')
+  read_datafile('inst/extdata/2025-09-16_LT1.csv')
+  # read_datafile('inst/extdata/2025-05-07_QL2.csv')
 
 dat_rename <-   rename_trollcols(dat_read)                   # Makes pretty and standardized column names
 
@@ -34,7 +34,7 @@ dat_stationary <- is_stationary(df=dat_rnddepth,
                                 stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
                                 sampling_int = target_interval,
                                 drop_cols = FALSE,
-                                window = 10,
+                                # window = 10,
                                 plot = TRUE)
 
 
