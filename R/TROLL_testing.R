@@ -31,7 +31,7 @@ dat_rnddepth <- depth_rounder(df = dat_rename,
 
 dat_stationary <- is_stationary(df=dat_rnddepth,
                                 depth_range_threshold = sd_depthrange_thresh,
-                                stationary_secs = stationary_time_thresh,                    # Adds 'is_stationary_status' column
+                                stationary_secs = 30,#stationary_time_thresh,                    # Adds 'is_stationary_status' column
                                 sampling_int = target_interval,
                                 drop_cols = FALSE,
                                 # window = 10,
