@@ -89,6 +89,18 @@ is_stationary <- function(df,
   # Pull depth values
   depth_vals <- df |> dplyr::pull({{ depth_col }})
 
+  # --- NOTE RccpRoll will be more efficient if we run into processing time concerns ---
+  # --- but it creates an additional dependency, so for now sticking to zoo::rollApply ---
+  # # --- RcppRoll version with NA handling ---
+  # # RcppRoll does not have na.rm, so wrap with pmin/pmax to handle NAs
+  # roll_min <- RcppRoll::roll_min(depth_vals, n = window, fill = NA, align = "right")
+  # roll_max <- RcppRoll::roll_max(depth_vals, n = window, fill = NA, align = "right")
+  #
+  # # If you want to ignore NAs within the window:
+  # # replace NA in rolling min/max with the min/max of non-NA values in that window
+  # roll_range <- roll_max - roll_min
+  # roll_range[is.na(roll_range)] <- NA  # optional, just ensures downstream logic treats them as not stationary
+
   # Rolling min and max
   roll_min <- zoo::rollapply(depth_vals, width = window, FUN = min, fill = NA, align = "right")
   roll_max <- zoo::rollapply(depth_vals, width = window, FUN = max, fill = NA, align = "right")
@@ -105,6 +117,28 @@ is_stationary <- function(df,
     # Build out a list of sequences for stationary block then flatten into a single vector to mark stationary flag as TRUE
     is_stationary_flag[unlist(mapply(seq, start_idx, end_idx))] <- TRUE
   }
+
+  # # --- Jump-based override ---
+  # # Compute instantaneous depth differences
+  # depth_diff <- c(0, abs(diff(depth_vals)))
+  #
+  # # Identify jumps exceeding threshold
+  # jump_idx <- which(depth_diff > depth_range_threshold)
+  #
+  # # Number of observations to force as non-stationary
+  # cooldown_n <- max(1, ceiling(min_detection_secs / samp_int))
+  #
+  # # Initialize override vector
+  # jump_override <- rep(FALSE, length(depth_vals))
+  #
+  # # Mark observations following a jump as non-stationary
+  # for (j in jump_idx) {
+  #   end_idx <- min(j + cooldown_n, length(depth_vals))
+  #   jump_override[(j + 1):end_idx] <- TRUE
+  # }
+  #
+  # # Apply jump override
+  # is_stationary_flag[jump_override] <- FALSE
 
   # Identify consecutive blocks
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
