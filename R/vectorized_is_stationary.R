@@ -32,15 +32,18 @@ is_stationary <- function(df,
     samp_int <- sampling_int
   }
 
-  # Compute window size in # of observations
+  # Minimum number of observations to be considered stationary
+  # min_obs <<- ceiling(stationary_secs / samp_int)
+  min_detect_secs <- max(5, 2 * samp_int)
+  min_detect_obs  <- ceiling(min_detect_secs / samp_int)
+
+  # Compute window size in # of observations, from input for time to be considered stationary and the sampling interval
   window <- ceiling(stationary_secs / samp_int)
+  window <- ceiling(min_detect_secs / samp_int)
   if(window > nrow(df)) {
     window <- nrow(df)
     message(paste("Window changed to maximum # of rows:", window))
   }
-
-  # Minimum number of observations to be considered stationary
-  min_obs <- ceiling(stationary_secs / samp_int)
 
   # Pull depth values
   depth_vals <- df |> dplyr::pull({{ depth_col }})
@@ -64,17 +67,35 @@ is_stationary <- function(df,
   # Identify consecutive blocks
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
 
+  # df_out <- df |>
+  #   dplyr::mutate(
+  #     is_stationary_initial = is_stationary_flag,
+  #     stationary_block_id = stationary_block_id
+  #   ) |>
+  #   dplyr::group_by(stationary_block_id) |>
+  #   dplyr::mutate(
+  #     block_duration = dplyr::n(),
+  #     block_secs = block_duration * samp_int,
+  #     is_stationary_status = dplyr::case_when(
+  #       is_stationary_initial & block_duration >= ceiling(stationary_secs / samp_int) ~ 999,
+  #       is_stationary_initial & block_duration >= min_detect_obs ~ block_duration * samp_int,
+  #       TRUE ~ 0
+  #     )
+  #   ) |>
+  #   dplyr::ungroup()
+
   df_out <- df |>
     dplyr::mutate(
       is_stationary_initial = is_stationary_flag,
       stationary_block_id = stationary_block_id
     ) |>
-    dplyr::group_by(stationary_block_id) |>
+    dplyr::group_by(stationary_block_id, is_stationary_initial) |>
     dplyr::mutate(
       block_duration = dplyr::n(),
+      block_secs = block_duration * samp_int,
       is_stationary_status = dplyr::case_when(
-        is_stationary_initial & block_duration >= min_obs ~ block_duration * samp_int,
-        is_stationary_initial & block_duration < min_obs ~ block_duration * samp_int,
+        is_stationary_initial & block_secs >= stationary_secs ~ 999,
+        is_stationary_initial & block_secs >= min_detect_secs ~ block_secs,
         TRUE ~ 0
       )
     ) |>

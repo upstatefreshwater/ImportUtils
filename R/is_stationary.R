@@ -173,7 +173,7 @@ is_stationary <- function(df,
     # 2. Visualize to verify the threshold
     p1 <- ggplot2::ggplot(out, ggplot2::aes(x = seq_len(nrow(out)), y = {{depth_col}})) +
       ggplot2::geom_line(alpha = 0.4) +
-      ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2, alpha = 0.3) +
+      ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
       ggplot2::scale_y_reverse() + # Depth plots usually go down
       ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
       ggplot2::scale_color_manual(name = 'Seconds Stationary',
