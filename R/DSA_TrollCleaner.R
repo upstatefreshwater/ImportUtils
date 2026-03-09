@@ -204,15 +204,6 @@ depth_rounder <- function(df,
                           interval = 1,
                           tolerance = 0.2){
 
-  # Internal helper to extract decimal places
-  decimalplaces <- function(x) {
-    if (abs(x - round(x)) > .Machine$double.eps^0.5) {
-      nchar(strsplit(sub('0+$', '', as.character(x)), ".", fixed = TRUE)[[1]][[2]])
-    } else {
-      return(0)
-    }
-  }
-
   if (!is.numeric(tolerance) || tolerance < 0){ # Checks tolerance is positive
     stop("tolerance must be non-negative numeric")
   }
@@ -220,10 +211,11 @@ depth_rounder <- function(df,
   tol_dec <- decimalplaces(tolerance)
   if(tol_dec>2) stop(paste0('Depth tolerance value: ',tolerance,' is unrealistically small.'))
 
-  if (!is.numeric(interval) || interval <= 0){# Checks interval is positive
-    stop("interval must be positive numeric")}
+  if (!is.numeric(interval) || interval <= 0) {# Checks interval is positive, or NULL
+    stop("interval must be positive numeric, or NULL")}
 
-  if(!is.null(interval)){ # If regular intervals enter this loop
+  # If regular intervals enter this loop
+  if(!is.null(interval)){
   int_dec <- decimalplaces(interval)
   if(int_dec>2) stop(paste0('Depth interval: ',interval,' is unrealistically small.'))
 
@@ -243,7 +235,7 @@ depth_rounder <- function(df,
   }
 
   if(is.null(interval)){
-    stop('Irregular interval support not implemented \nIf you meant to use regular depth intervals, check your "target_depths" specification. ')
+    stop('Irregular interval support not implemented \nIf you meant to use regular depth intervals, check your "target_depths" specification.')
   }
 
 
@@ -943,3 +935,13 @@ if(!is.numeric(stationary_thresh)) stop("stationary_thresh must be numeric")
 
 
 
+
+# Decimal Places ----
+# helper to extract decimal places
+decimalplaces <- function(x) {
+  if (abs(x - round(x)) > .Machine$double.eps^0.5) {
+    nchar(strsplit(sub('0+$', '', as.character(x)), ".", fixed = TRUE)[[1]][[2]])
+  } else {
+    return(0)
+  }
+}

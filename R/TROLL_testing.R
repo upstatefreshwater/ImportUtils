@@ -115,6 +115,7 @@ dat3 <- dat_jiggle |>
 
 
 ph_testdat <- dat3 |>
+  troll_sensor_stable()
   pH_stable(sampling_int = sampling_interval_calculated,
             slope_thresh = 0.01) # units/second
 

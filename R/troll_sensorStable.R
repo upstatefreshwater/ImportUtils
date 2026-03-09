@@ -13,7 +13,7 @@ calc_stats <- function(x,y){
   )
 }
 ##############################################################
-sensor_stable <- function(df,
+troll_sensor_stable <- function(df,
                       value_col = pH_units,
                       min_n = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
                       # sampling_int = 2,        # seconds

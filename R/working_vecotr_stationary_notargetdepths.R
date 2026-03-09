@@ -3,9 +3,9 @@ depth_col  = rlang::sym('depth_m')
 datetime_col  = rlang::sym('DateTime')
 depth_range_threshold  = 0.1
 stationary_secs  = 60
-min_detection_secs  = 5
+min_detection_secs  = 15
 sampling_int  = 0
-target_depths = seq(0,8,1)#NULL
+# target_depths = seq(0,8,1)#NULL
 drop_cols  = TRUE
 plot  = FALSE
 
@@ -14,47 +14,13 @@ if (nrow(df) < 2) stop("Data frame must contain at least two observations.")
 
 # Check target depths
 
-# If target depths are given, will need to check against extracted stationary block depths
-if(!is.null(target_depths)){
-  # Checks on data range
-  if(max(df[[depth_col]],na.rm = TRUE) < max(target_depths,na.rm = TRUE)){
-    stop('The specified target depths contain greater depth values than the maximum found in the data')
-  }
-
-  if(min(df[[depth_col]],na.rm = TRUE) < min(target_depths,na.rm = TRUE)){
-    stop('The specified target depths contain lesser depth values than the minimum found in the data')
-  }
-
-  # If depth rounding has not been done yet, do it here
-  if(!'obs_depth' %in% names(df)){
-    # Extract the precision of target depths using internal helper 'decimalplaces'
-    prec_targ <- unique(mapply(decimalplaces, x = target_depths))
-
-    if(length(prec_targ) > 1){warning('Target depths were specified using variable precision.')}
-    # Warn the user that depth data will be rounded to the precision of the given target depths
-    warning('Depth data rounded to the precision of target depths for identifying depths of stationary blocks of data.')
-
-    # Check that target depths are uniformly distributed
-    targ_check <- diff(target_depths)
-    targ_check <- unique(targ_check[!is.na(targ_check)])
-
-    if(length(targ_check) > 1){stop('Target depths must be in equally spaced increments.')} # Will want to update eventually to allow uneven increments
-
-    df <- depth_rounder(df,
-                        depth_col = !!depth_col,
-                        interval = targ_check,
-                        tolerance = 0.2)
-  }
-} else{
-  warning('No target depths provided, output will include all stationary data meeting input specifications.')
-}
-
 # Calculate sampling interval if not provided
 if (sampling_int == 0) {
   times <- df |> dplyr::pull(!!datetime_col)
   samp_int <- median(as.numeric(diff(times), units = "secs"), na.rm = TRUE)
 
-  if(length(unique(diff(times), na.rm = TRUE)) > 1){
+  dts <- diff(times)
+  if(length(unique(dts[!is.na(dts)])) > 1){
     warning("Inconsistent sampling intervals detected.")
   }
   if(samp_int > 30){
@@ -70,8 +36,8 @@ if (sampling_int == 0) {
 # but never fewer than 5 observations so the rolling window isn't trivially small
 min_detect_secs <- min_detection_secs
 if(min_detect_secs < samp_int){
-min_detect_secs <- 2 * samp_int
-warning('"min_detect_secs" set to a value less than the sampling interval, a minimum of 2 sampling intervals will be used for rolling window calculations.')
+  min_detect_secs <- 2 * samp_int
+  warning('"min_detect_secs" set to a value less than the sampling interval, a minimum of 2 sampling intervals will be used for rolling window calculations.')
 }
 
 # Compute rolling window size (number of observations)
@@ -90,7 +56,7 @@ depth_vals <- df |> dplyr::pull(!!depth_col)
 # Rolling min and max
 roll_min <- zoo::rollapply(depth_vals, width = window, FUN = min, fill = NA, align = "right")
 roll_max <- zoo::rollapply(depth_vals, width = window, FUN = max, fill = NA, align = "right")
-roll_range <- roll_max - roll_min
+roll_range <- roll_max - roll_min #round(roll_max - roll_min,2)
 
 # Vectorized flagging of stationary points: any point within a window that meets threshold
 is_stationary_flag <- rep(FALSE, length(depth_vals))
@@ -111,15 +77,15 @@ depth_diff <- c(0, abs(diff(depth_vals)))
 # Identify jumps exceeding threshold
 jump_idx <- which(depth_diff > depth_range_threshold)
 
-# Number of observations to force as non-stationary
-cooldown_n <- max(1, ceiling(min_detection_secs / samp_int))
+# Number of observations to force as non-stationary (just use one, jiggle period enforcement later)
+cooldown_n <- 1
 
 # Initialize override vector
 jump_override <- rep(FALSE, length(depth_vals))
 
 # Mark observations following a jump as non-stationary
 for (j in jump_idx) {
-  end_idx <- min(j + cooldown_n, length(depth_vals))
+  end_idx <- min(j, length(depth_vals))
   jump_override[j:end_idx] <- TRUE
 }
 
@@ -146,14 +112,17 @@ df_out <- df |>
   ) |>
   dplyr::ungroup()
 
-
-
 ######################
 # Line values at depths above the minimum stationary time
 if('obs_depth' %in% names(df_out)){
-  stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status > 0])
+  stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status == 999])
 } else {
-  stationary_depths <- unique(round(df_out$depth_m[df_out$is_stationary_status > 0], 1))
+  stationary_depths <-
+    df_out |>
+    dplyr::filter(is_stationary_status == 999) |>
+    dplyr::group_by(stationary_block_id) |>
+    dplyr::summarise(depth = round(mean({{depth_col}}, na.rm = TRUE), 1), .groups = "drop") |>
+    dplyr::pull(depth)
 }
 # Plotting as before
 levels_list <- as.character(unique(df_out$is_stationary_status))
@@ -173,11 +142,12 @@ if(length(other_vals) > 0){
 p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = {{depth_col}})) +
   ggplot2::geom_line(alpha = 0.4) +
   ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
-  ggplot2::scale_y_reverse() +
+  ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +
   ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
   ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
   ggplot2::geom_hline(yintercept = stationary_depths, col = 'black',lty = 2) +
-  ggplot2::theme_minimal()
+  # ggplot2::theme_minimal()
+  cowplot::theme_cowplot()
 
 p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
   ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
@@ -185,7 +155,8 @@ p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_r
   ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
   ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
   ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
-  ggplot2::theme_minimal()
+  # ggplot2::theme_minimal()
+  cowplot::theme_cowplot()
 
 print(patchwork::wrap_plots(p1, p2, ncol = 1))
 
