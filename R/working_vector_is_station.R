@@ -1,15 +1,30 @@
 df = dat_rnddepth
 depth_col  = rlang::sym('depth_m')
 datetime_col  = rlang::sym('DateTime')
-depth_range_threshold  = 0.05
-stationary_secs  = 30
-min_detection_secs  = 10
+depth_range_threshold  = 0.1
+stationary_secs  = 60
+min_detection_secs  = 5
 sampling_int  = 0
+target_depths = seq(0,8,1)#NULL
 drop_cols  = TRUE
 plot  = FALSE
 
 # ---- CHECKS --- ----
 if (nrow(df) < 2) stop("Data frame must contain at least two observations.")
+
+# Check target depths
+
+if(!is.null(target_depths)){
+  if(max(df[[depth_col]],na.rm = TRUE) < max(target_depths,na.rm = TRUE)){
+    stop('The specified target depths contain greater depth values than the maximum found in the data')
+  }
+
+  if(min(df[[depth_col]],na.rm = TRUE) < min(target_depths,na.rm = TRUE)){
+    stop('The specified target depths contain lesser depth values than the minimum found in the data')
+  }
+} else{
+  warning('No target depths provided, output will include all stationary data meeting input specifications.')
+}
 
 # Calculate sampling interval if not provided
 if (sampling_int == 0) {
@@ -30,12 +45,17 @@ if (sampling_int == 0) {
 
 # Ensure we always require at least 2 sampling intervals worth of data,
 # but never fewer than 5 observations so the rolling window isn't trivially small
-min_detect_secs <- max(min_detection_secs, 2 * samp_int)
+min_detect_secs <- min_detection_secs
+if(min_detect_secs < samp_int){
+min_detect_secs <- 2 * samp_int
+warning('"min_detect_secs" set to a value less than the sampling interval, a minimum of 2 sampling intervals will be used for rolling window calculations.')
+}
 
 # Compute rolling window size (number of observations)
-min_detect_obs <- ceiling(min_detect_secs / samp_int)
-if(min_detect_obs<5){warning('"min_detect_secs" resulted in too narrow a rolling range window, minimum of 5 observations automatically implemented for range calculation.')}
-window <- max(5, min_detect_obs)
+window <- ceiling(min_detect_secs / samp_int)
+#
+# if(min_detect_obs<2){warning('"min_detect_secs" resulted in too narrow a rolling range window, minimum of 5 observations automatically implemented for range calculation.')}
+# window <- max(2, min_detect_obs)
 if(window > nrow(df)) {
   window <- nrow(df)
   message(paste("Window changed to maximum # of rows:", window))
@@ -77,7 +97,7 @@ jump_override <- rep(FALSE, length(depth_vals))
 # Mark observations following a jump as non-stationary
 for (j in jump_idx) {
   end_idx <- min(j + cooldown_n, length(depth_vals))
-  jump_override[(j + 1):end_idx] <- TRUE
+  jump_override[j:end_idx] <- TRUE
 }
 
 # Apply jump override
@@ -102,3 +122,45 @@ df_out <- df |>
     )
   ) |>
   dplyr::ungroup()
+
+######################
+# Line values at depths above the minimum stationary time
+if('obs_depth' %in% names(df_out)){
+  stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status > 0])
+} else {
+  stationary_depths <- unique(round(df_out$depth_m[df_out$is_stationary_status > 0], 1))
+}
+# Plotting as before
+levels_list <- as.character(unique(df_out$is_stationary_status))
+# fixed colors
+mycolors <- c("0" = "red", "999" = "green")
+
+# intermediate durations (exclude 0 and 999)
+other_vals <- setdiff(levels_list, c("0", "999"))
+
+if(length(other_vals) > 0){
+  # use Dark2 palette and interpolate if more colors are needed
+  base_pal <- RColorBrewer::brewer.pal(8, "Dark2")              # base palette
+  pal <- grDevices::colorRampPalette(base_pal)(length(other_vals))  # interpolate to needed length
+  mycolors <- c(mycolors, setNames(pal, other_vals))
+}
+
+p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = {{depth_col}})) +
+  ggplot2::geom_line(alpha = 0.4) +
+  ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
+  ggplot2::scale_y_reverse() +
+  ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
+  ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
+  ggplot2::geom_hline(yintercept = stationary_depths, col = 'black',lty = 2) +
+  ggplot2::theme_minimal()
+
+p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
+  ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold, color = "Threshold", linetype = "Threshold")) +
+  ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
+  ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
+  ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
+  ggplot2::theme_minimal()
+
+print(patchwork::wrap_plots(p1, p2, ncol = 1))
+

@@ -118,27 +118,27 @@ is_stationary <- function(df,
     is_stationary_flag[unlist(mapply(seq, start_idx, end_idx))] <- TRUE
   }
 
-  # # --- Jump-based override ---
-  # # Compute instantaneous depth differences
-  # depth_diff <- c(0, abs(diff(depth_vals)))
-  #
-  # # Identify jumps exceeding threshold
-  # jump_idx <- which(depth_diff > depth_range_threshold)
-  #
-  # # Number of observations to force as non-stationary
-  # cooldown_n <- max(1, ceiling(min_detection_secs / samp_int))
-  #
-  # # Initialize override vector
-  # jump_override <- rep(FALSE, length(depth_vals))
-  #
-  # # Mark observations following a jump as non-stationary
-  # for (j in jump_idx) {
-  #   end_idx <- min(j + cooldown_n, length(depth_vals))
-  #   jump_override[(j + 1):end_idx] <- TRUE
-  # }
-  #
-  # # Apply jump override
-  # is_stationary_flag[jump_override] <- FALSE
+  # --- Jump-based override ---
+  # Compute instantaneous depth differences
+  depth_diff <- c(0, abs(diff(depth_vals)))
+
+  # Identify jumps exceeding threshold
+  jump_idx <- which(depth_diff > depth_range_threshold)
+
+  # Number of observations to force as non-stationary
+  cooldown_n <- max(1, ceiling(min_detection_secs / samp_int))
+
+  # Initialize override vector
+  jump_override <- rep(FALSE, length(depth_vals))
+
+  # Mark observations following a jump as non-stationary
+  for (j in jump_idx) {
+    end_idx <- min(j + cooldown_n, length(depth_vals))
+    jump_override[j:end_idx] <- TRUE
+  }
+
+  # Apply jump override
+  is_stationary_flag[jump_override] <- FALSE
 
   # Identify consecutive blocks
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)

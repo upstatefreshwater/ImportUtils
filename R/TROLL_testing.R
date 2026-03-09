@@ -1,7 +1,7 @@
 # Helpers currently live here:
 source('R/DSA_TrollCleaner.R')
 source('R/rename_trollcols.R')
-source('R/is_stationary.R')
+source('R/vectorized_is_stationary.R')
 
 # 1) This is the skeleton of the main function ----
 median_secs <- 30

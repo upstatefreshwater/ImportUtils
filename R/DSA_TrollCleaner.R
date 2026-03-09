@@ -355,7 +355,7 @@ troll_run_stats <- function(df,
       stop("`target_depths` must be a numeric vector or NULL.", call. = FALSE)
     }
 
-    if(target_depths >1){
+    if(target_depths > 1){
       depth_check <- diff(target_depths)
       depth_check <- depth_check[!is.na(depth_check)]
 
