@@ -1,4 +1,4 @@
-# Finds the nearest depth from a raw data column to a candidate set
+# Finds the nearest depth from a raw data column to a candidate set of target depths
 nearest_depth <- function(raw_z,
                           candidate_z,
                           tol = 0.25,
@@ -24,3 +24,47 @@ nearest_depth <- function(raw_z,
 
   out
 }
+
+# Calculates the sampling interval from a column/vector of datetime data as the mode (if multiple intervals detected)
+# If multiple intervals detected, it gives a warning only
+
+get_sample_interval <- function(datetime_data,
+                                output_units = "secs",
+                                tol_prop = 1) {
+
+  # Calculate sampling intervals
+  all_ints <- as.numeric(diff(datetime_data), units = "secs")
+  all_ints <- all_ints[!is.na(all_ints)]
+
+  # Count intervals
+  counts <- table(all_ints)
+
+  # Most common interval (mode)
+  sampling_int <- as.numeric(names(counts)[which.max(counts)])
+
+  # Check consistency
+  prop <- max(counts) / sum(counts)
+
+  if (length(counts) > 1 && prop < tol_prop) {
+
+    dist_table <- data.frame(
+      sampling_interval = as.numeric(names(counts)),
+      n = as.integer(counts)
+    )
+
+    warning(
+      paste0(
+        "Inconsistent sampling intervals detected.\n",
+        "Dominant interval: ", sampling_int, " ", output_units,
+        " (", round(prop * 100, 1), "% of records).\n",
+        "Interval distribution:\n",
+        paste(capture.output(print(dist_table, row.names = FALSE)),
+              collapse = "\n")
+      ),
+      call. = FALSE
+    )
+  }
+
+  sampling_int
+}
+
