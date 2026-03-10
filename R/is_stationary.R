@@ -198,7 +198,7 @@ is_stationary <- function(df,
         values = c("Rolling SD" = "solid",
                    "SD Threshold" = "dashed")
       ) +
-      ggplot2::labs(title = "Rolling Standard Deviation",
+      ggplot2::labs(title = "Rolling Range",
                     y = "SD (m)",
                     x = "Observation Index") +
       ggplot2::theme_minimal()
