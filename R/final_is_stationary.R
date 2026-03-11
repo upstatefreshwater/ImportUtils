@@ -76,82 +76,35 @@ is_stationary <- function(df,
   # Initialize stationary flag as all FALSE
   is_stationary_flag <- rep(FALSE, length(depth_vals))
 
-  # # Assume initial window is stationary at first to avoid NA propagation issues w/ "starts" calculation
-  # is_stationary_flag[1:rolling_n] <- TRUE
-  #
-  # first_window_idx <- which(diff(is_stationary_flag) == -1)
-  #
-  # return(first_window_idx)
-
   # Create an index of positions where the rolling range is below the "depth_range_threshold"
-  good_rollrange_idx <-  which(roll_range < depth_range_threshold) #!is.na(roll_range) &
+  good_rollrange_idx <-  which(!is.na(roll_range) & roll_range < depth_range_threshold) #
 
-  # 4. --- Mark the starts of stationary blocks so start_trimming can be applied --- ----
-  # bool_roll <- roll_range < depth_range_threshold
-  bool_roll <- roll_range < depth_range_threshold          # Remove NA propagation issues !is.na(roll_range) &
-  # return(bool_roll)
-# return(data.frame(bool_roll,rolling_n,depth_range_threshold,trim_n))
-  # Use the fact that TRUE == 1 and FALSE == 0, so where is_stationary_flag switches from FALSE -> TRUE, the lagged diff will == 1
-  # starts_idx <- which(c(NA,diff(bool_roll)) == 1)       # Calculate the lagged diffs and Identify where starts are
-  # starts_idx <- which(diff(c(FALSE, bool_roll)) == 1)     # Switch from NA version
+  # Update stationary flag with TRUE locations
+  # Mark those locations from the rolling range threshold index as TRUE
+  is_stationary_flag[good_rollrange_idx] <- TRUE                                 # This has to be done before trimming!!!
+
+  # 4. --- Apply trimming logic --- ----
+  # Create a boolean where rolling range below the range threshold is TRUE
+  bool_roll <- !is.na(roll_range) & roll_range < depth_range_threshold          # Avoid NA propagation issues
+
+  # This utility function returns indices of stable observations to be trimmed from the start of the stable period
   trim_idx <- trim_stationary_starts(range_met_vector = bool_roll,
                                      rolling_n = rolling_n,
                                      depth_range_threshold = depth_range_threshold,
                                      trim_n = trim_n)
 
-  # return(trim_idx)
-  # 4. --- Update stationary flag with TRUE locations --- ----
-  # Mark those locations from the rolling range threshold index as TRUE
-  is_stationary_flag[good_rollrange_idx] <- TRUE
-
   # Update the stationary_flag to include trimming
+  # If the n_obs to be trimmed is less than the rolling window,
+  # shift the difference of obs to TRUE from the start_idx backwards
   if(trim_n < rolling_n){
     is_stationary_flag[trim_idx] <- TRUE
+
+    #If there are more n_obs to be trimmed than the size of the rolling window,
+    # convert the difference to FALSE between start_idx:trim_n
   } else{
     is_stationary_flag[trim_idx] <- FALSE
   }
 
-  # # Either look backwards from the rollrange starts and add more TRUE flags, OR flag more obs as FALSE depending on start_trim amounts
-  # # If start_n_trimmed is negative, the length of trimming given by the user is more than the window
-  # # ADD additional FALSE flags beyond the start found with the rolling window
-  # if(sign(start_n_trimmed) < 0){
-  #   trim_roll_diff <- trim_n - rolling_n
-  #   is_stationary_flag[unlist(mapply(seq,
-  #                                    starts_idx,                                  # From the starts index
-  #                                    starts_idx+trim_roll_diff))] <- FALSE        # Add more FALSE flags until trim_n is reached
-  #
-  #   # For initial window, check for zero depth stability
-  #   if(is_stationary_flag[rolling_n]){ # If the initial window is within the depth range threshold
-  #     first_depths <- depth_vals[1:rolling_n]
-  #     if(all(first_depths < 0.5)){     # AND the depths are < 0.5m
-  #       is_stationary_flag[rolling_n:(rolling_n + trim_roll_diff)] <- FALSE
-  #     }
-  #
-  #   }
-  #
-  #   # If start_n_trimmed is positive, there were fewer obs to trim than the window
-  #   # Change some of the FALSE flags to TRUE at the start of the stationary block
-  # } else{
-  #   is_stationary_flag[unlist(mapply(seq,
-  #                                    starts_idx - rolling_n + start_n_trimmed,   # From the start of the rolling window plus the n_obs to trim away
-  #                                    starts_idx))] <- TRUE                       # Turn everything TRUE to the start_idx value
-  #
-  #   # For initial window, check for zero depth stability
-  #   if(is_stationary_flag[rolling_n]){ # If the initial window is within the depth range threshold
-  #     first_depths <- depth_vals[1:rolling_n]
-  #     if(all(first_depths < 0.5)){     # AND the depths are < 0.5m
-  #       # is_stationary_flag[trim_n:rolling_n] <- TRUE
-  #       is_stationary_flag[seq(trim_n, rolling_n)] <- TRUE # This version prevents accidental reverse indexing
-  #     }
-  #   }
-  #
-  #
-  #   # return(data.frame(starts_idx, starts_idx - rolling_n +1, starts_idx - rolling_n + start_n_trimmed))
-  # }
-
-
-
-  # if(is.na(roll_range)){}
   # 5. --- Calculate stationary block durations --- ----
 
 
