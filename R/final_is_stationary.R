@@ -1,4 +1,49 @@
-
+#' Identify Stationary Periods in Sonde Depth Data
+#'
+#' This function flags periods where a sonde or depth sensor is effectively stationary based on a rolling range of depth measurements.
+#' It can handle irregular sampling intervals, optionally trims the start of stationary blocks to remove initial noisy data, and optionally plots
+#' depth and rolling range over time.
+#'
+#' @param df A data frame containing depth and datetime observations.
+#' @param depth_col Column in `df` representing depth measurements (numeric). Default is `depth_m`.
+#' @param datetime_col Column in `df` representing observation timestamps (POSIXt). Default is `DateTime`.
+#' @param depth_range_threshold Numeric. Maximum depth range within a rolling window to consider the sonde stationary. Default is `0.05`.
+#' @param stationary_secs Numeric. Minimum duration in seconds for a block to be considered stationary. Default is `60`.
+#' @param rolling_range_secs Numeric. Window size in seconds used to calculate rolling depth range. Default is `10`.
+#' @param start_trim_secs Numeric. Number of seconds to trim from the start of stationary blocks to remove initial jumps. Default is `15`.
+#' @param drop_cols Logical. If TRUE, intermediate columns used for computation are removed from the output. Default is `TRUE`.
+#' @param plot Logical. If TRUE, produces plots showing depth and rolling range with stationary periods highlighted. Default is `FALSE`.
+#'
+#' @return A data frame identical to `df` but with additional columns:
+#'   \describe{
+#'     \item{is_stationary_status}{Numeric. 999 = fully stationary block, intermediate values = partial stationary duration in seconds, 0 = not stationary.}
+#'     \item{stationary_depth}{Mean depth during stationary blocks (NA if not stationary).}
+#'   }
+#'
+#' @details
+#' The function first calculates the sampling interval based on lagged differences of the `datetime_col`.
+#' It then computes a rolling range of depth values across a window size of length = `rolling_range_secs`.
+#' It identifies candidate stationary periods where the rolling range is below `depth_range_threshold`.
+#' The `start_trim_secs` parameter enables trimming of initial observations in a stationary block.
+#' Blocks shorter than `stationary_secs` are flagged with the block duration in seconds. Blocks longer than `stationary_secs` are flagged as 999.
+#' If the sampling interval exceeds 30 seconds, the sonde is assumed to be fixed, and all rows are returned with `is_stationary_status = 999`.
+#'
+#' @seealso \code{\link[zoo]{rollapply}}
+#'
+#' @examples
+#' \dontrun{
+#' library(dplyr)
+#' df <- data.frame(
+#' DateTime = seq.POSIXt(from = as.POSIXct("2026-01-01 00:00"),
+#'                       by = "sec", length.out = 170),
+#' depth_m = c(rep(1.0, 50), rep(1.05, 70), rnorm(50,2,.02))
+#' )
+#' df_flagged <- is_stationary(df, depth_col = depth_m, datetime_col = DateTime,
+#'                             start_trim_secs = 5, stationary_secs = 45,
+#'                             depth_range_threshold = 0.05)
+#' }
+#'
+#' @export
 is_stationary <- function(df,
                           depth_col = depth_m,
                           datetime_col = DateTime,
@@ -6,7 +51,6 @@ is_stationary <- function(df,
                           stationary_secs = 60,
                           rolling_range_secs = 10,
                           start_trim_secs = 15,
-                          # sampling_int = 0,
                           drop_cols = TRUE,
                           plot = FALSE) {
   # 00. --- rlang arguments --- ----
@@ -107,7 +151,7 @@ is_stationary <- function(df,
 
   # 5. --- Calculate stationary block duration --- ----
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
-  junk <- df |>
+  df_out <- df |>
     dplyr::mutate(
       is_stationary_initial = is_stationary_flag, #
       stationary_block_id = stationary_block_id   # For grouping (includes both T/F blocks)
@@ -119,22 +163,79 @@ is_stationary <- function(df,
       is_stationary_status = dplyr::case_when(
         is_stationary_initial & block_secs >= stationary_secs ~ 999,
         is_stationary_initial & block_secs < stationary_secs ~ block_secs,
-        TRUE ~0
-      ))
+        TRUE ~ 0)) |>
+    dplyr::ungroup()
 
-  return(junk)
+  # Warning for time jumps (missing data due to bluetooth glitch) would have occurred when sampling interval was calculated
+
+  # 6. --- Optional Plotting --- ----
+  # Line values at depths above the minimum stationary time
+  if('obs_depth' %in% names(df_out)){
+    stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status == 999])
+  } else {
+    stationary_depths <-
+      df_out |>
+      dplyr::filter(is_stationary_status == 999) |>
+      dplyr::group_by(stationary_block_id) |>
+      dplyr::summarise(depth = round(mean({{depth_col}}, na.rm = TRUE), 1), .groups = "drop") |>
+      dplyr::pull(depth)
+  }
+  # Plotting as before
+  levels_list <- as.character(unique(df_out$is_stationary_status))
+  # fixed colors
+  mycolors <- c("0" = "red", "999" = "green")
+
+  # intermediate durations (exclude 0 and 999)
+  other_vals <- setdiff(levels_list, c("0", "999"))
+
+  if(length(other_vals) > 0){
+    # use Dark2 palette and interpolate if more colors are needed
+    base_pal <- RColorBrewer::brewer.pal(8, "Dark2")              # base palette
+    pal <- grDevices::colorRampPalette(base_pal)(length(other_vals))  # interpolate to needed length
+    mycolors <- c(mycolors, setNames(pal, other_vals))
+  }
+
+  p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = {{depth_col}})) +
+    ggplot2::geom_line(alpha = 0.4) +
+    ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
+    ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +
+    ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
+    ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
+    ggplot2::geom_hline(yintercept = stationary_depths, col = 'black',lty = 2) +
+    # ggplot2::theme_minimal()
+    cowplot::theme_cowplot()
+
+  p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
+    ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
+    ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold, color = "Threshold", linetype = "Threshold")) +
+    ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
+    ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
+    ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
+    # ggplot2::theme_minimal()
+    cowplot::theme_cowplot()
+
+  print(patchwork::wrap_plots(p1, p2, ncol = 1))
+
+  # 7. --- Compile output Data --- ----
+  #  7a.*** Compute stationary depths --- ----
+  df_out <- df_out |>
+    dplyr::group_by(stationary_block_id) |>
+    dplyr::mutate(stationary_depth = mean(depth_m, na.rm = TRUE),
+                  stationary_depth = ifelse(
+                    is_stationary_status,
+                    stationary_depth,
+                    NA
+                  ))
+
+  #  7b.*** Remove unecessary columns --- ----
+
+  if (drop_cols) {                                                                # Remove intermediate columns
+    df_out <- df_out |>
+      dplyr::select(-c(is_stationary_initial, stationary_block_id,block_n,block_secs))
+  }
 
 
-  # . --- Compile output Data --- ----
-  out <- data.frame(bool_roll,
-                    raw = df[[rlang::as_name(depth_col)]],
-                    rollrange = roll_range,
-                    starts = c(NA,diff(bool_roll)),
-                    flag = is_stationary_flag,
-                    rolling_n,
-                    trim_n,
-                    start_n_trimmed)
-  return(out)
+  return(df_out)
 
 }
 
@@ -142,7 +243,9 @@ is_stationary <- function(df,
 # data.frame(raw = dat_rename$depth_m,flag = is_stationary(dat_rename))
 junk <- is_stationary(df = dat_rename,
               depth_range_threshold = 0.1,
-              start_trim_secs = 6)
+              start_trim_secs = 10,
+              stationary_secs = 45,
+              plot = TRUE)
 
 
 
