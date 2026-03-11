@@ -105,9 +105,27 @@ is_stationary <- function(df,
     is_stationary_flag[trim_idx] <- FALSE
   }
 
-  # 5. --- Calculate stationary block durations --- ----
+  # 5. --- Calculate stationary block duration --- ----
+  stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
+  junk <- df |>
+    dplyr::mutate(
+      is_stationary_initial = is_stationary_flag, #
+      stationary_block_id = stationary_block_id   # For grouping (includes both T/F blocks)
+    ) |>
+    dplyr::group_by(stationary_block_id, is_stationary_initial) |> # Include both so computation is done by T/F grouping on stationary_flag
+    dplyr::mutate(
+      block_n = dplyr::n(),
+      block_secs = as.numeric(max({{datetime_col}}) - min({{datetime_col}}), units = "secs"),
+      is_stationary_status = dplyr::case_when(
+        is_stationary_initial & block_secs >= stationary_secs ~ 999,
+        is_stationary_initial & block_secs < stationary_secs ~ block_secs,
+        TRUE ~0
+      ))
+
+  return(junk)
 
 
+  # . --- Compile output Data --- ----
   out <- data.frame(bool_roll,
                     raw = df[[rlang::as_name(depth_col)]],
                     rollrange = roll_range,
@@ -122,7 +140,7 @@ is_stationary <- function(df,
 
 
 # data.frame(raw = dat_rename$depth_m,flag = is_stationary(dat_rename))
-is_stationary(df = dat_rename,
+junk <- is_stationary(df = dat_rename,
               depth_range_threshold = 0.1,
               start_trim_secs = 6)
 

@@ -76,6 +76,9 @@ trim_stationary_starts <- function(range_met_vector,
                                    depth_range_threshold,
                                    rolling_n,
                                    trim_n){
+  if(!is.logica(range_met_vector)){
+    stop('Required "range_met_vector" needs to be a logical (boolean) input.')
+  }
   # Identify where stationary blocks begin and backfill them
   # accounting for rolling window delay and start trimming
 
