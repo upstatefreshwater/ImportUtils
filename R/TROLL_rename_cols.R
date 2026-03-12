@@ -248,7 +248,7 @@ strip_meta <- function(df,
 #'
 #' @export
 
-rename_trollcols <- function(df,
+TROLL_rename_cols <- function(df,
                              trollcomm_serials = trollCOMM_serials,
                              strip_metadata = TRUE,
                              print_colnames = FALSE) {
