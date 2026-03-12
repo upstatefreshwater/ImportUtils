@@ -1,4 +1,9 @@
-sensor_stable <- function(df,
+#' 0. Recall that range and slope are computed across the entire stationary period here, not a window!!!!
+#' 1. Do we keep min_n as observations, or shift to a min time?
+#' 2. How do we automatically detect which columns are present in the input data to iterate on?
+#' 3. Add optional plotting
+
+TROLL_sensor_stable <- function(df,
                           value_col = pH_units,
                           min_n = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
                           # sampling_int = 2,        # seconds
@@ -10,10 +15,10 @@ sensor_stable <- function(df,
   # 0. Extract value column data and value column name using tidy eval ----
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
-  value_flag_col <- paste(value_name,"_stable")
+  value_flag_col <- paste0(value_name,"_stable")
   # 1. Input checks ----
 
-  req_cols <- c('DateTime','depth_m','obs_depth','stationary_block_id','is_stationary_status',value_name) # 'depth_m',
+  req_cols <- c('DateTime','depth_m','stationary_depth','stationary_block_id','is_stationary_status',value_name) # 'depth_m',
 
   if(!all(req_cols %in% names(df))){
     missingCols <- req_cols[!req_cols %in% names(df)]
@@ -42,11 +47,11 @@ sensor_stable <- function(df,
   # If jiggle period is flagged in the "post_jiggle" column, and user wishes to remove those rows of data
   if (remove_jiggle && jiggle_check) {
     dat_base <- dat_base |>
-      dplyr::select(DateTime,depth_m,obs_depth,stationary_block_id,is_stationary_status,post_jiggle,{{value_col}}) |>
+      dplyr::select(DateTime,depth_m,stationary_depth,stationary_block_id,is_stationary_status,post_jiggle,{{value_col}}) |>
       dplyr::filter(post_jiggle)
   } else{
     dat_base <- dat_base |>
-      dplyr::select(DateTime,depth_m,obs_depth,stationary_block_id,is_stationary_status,{{value_col}})
+      dplyr::select(DateTime,depth_m,stationary_depth,stationary_block_id,is_stationary_status,{{value_col}})
   }
 
   # Group the data into stationary blocks and split them out into a list
@@ -73,7 +78,7 @@ sensor_stable <- function(df,
 
     # Stop execution if block is empty
     if(n==0){
-      msg_depth <- unique(stable_group_dat$obs_depth)
+      msg_depth <- unique(stable_group_dat$stationary_depth)
       stop(paste0('Zero data returned for depth ',msg_depth))
     }
 
@@ -97,7 +102,7 @@ sensor_stable <- function(df,
 
     # Set min_n rows slope and ranke OK flags to keep data if threshold is never met
     if(nrow(group_out) < min_n){
-      msg_depth <- unique(stable_group_dat$obs_depth)
+      msg_depth <- unique(stable_group_dat$stationary_depth)
       warning(paste0('The given "min_n" is larger than the number of stable data identified for ',value_name,' at',msg_depth,'.'))
     }
 
@@ -114,7 +119,7 @@ sensor_stable <- function(df,
     # Create a safety net in case the # of data rows < min_n
     if(n < min_n) {  # If fewer rows of data exist than the min_n as specified
       n_windows <- n # Use all available data to compute statistics (slope, range)
-      msg_depth <- unique(stable_group_dat$obs_depth)
+      msg_depth <- unique(stable_group_dat$stationary_depth)
       warning(paste0('The given "min_n" is larger than the number of stable data identified for ',value_name,' at',msg_depth,'.'))
     } else {         # Or if more data exist than min_n rows
       n_windows <- n - min_n + 1 # Evaluate stats for the number of rows (n) minus the tail (min_n)
@@ -140,7 +145,7 @@ sensor_stable <- function(df,
       }
 
       if(is.na(slope_fit)){
-        warning(paste0("Single datapoint used for ",unique(stable_group_dat$obs_depth),", slope could not be calculated"))
+        warning(paste0("Single datapoint used for ",unique(stable_group_dat$stationary_depth),", slope could not be calculated"))
       }
 
       # Range
@@ -184,5 +189,5 @@ sensor_stable <- function(df,
 }
 
   #########################################################
-xx <-
-  sensor_stable(dat_jiggle);xx
+# xx <-
+#   sensor_stable(dat_jiggle);xx
