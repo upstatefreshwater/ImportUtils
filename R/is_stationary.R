@@ -241,11 +241,11 @@ is_stationary <- function(df,
 
 
 # data.frame(raw = dat_rename$depth_m,flag = is_stationary(dat_rename))
-junk <- is_stationary(df = dat_rename,
-              depth_range_threshold = 0.1,
-              start_trim_secs = 10,
-              stationary_secs = 45,
-              plot = TRUE)
+# junk <- is_stationary(df = dat_rename,
+#               depth_range_threshold = 0.1,
+#               start_trim_secs = 10,
+#               stationary_secs = 45,
+#               plot = TRUE)
 
 
 
