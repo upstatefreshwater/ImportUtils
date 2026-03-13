@@ -155,4 +155,8 @@ decimalplaces <- function(x) {
   }
 }
 
+# TROLL detects sensor columns (for stability function) ----
+
+
+
 

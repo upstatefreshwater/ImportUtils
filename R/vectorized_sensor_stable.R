@@ -22,7 +22,12 @@ TROLL_sensor_stable <- function(df,
 
   if(!all(req_cols %in% names(df))){
     missingCols <- req_cols[!req_cols %in% names(df)]
-    stop(paste("Missing columns:", paste(missingCols, collapse = ", ")))
+
+    # Add indentation to each column name and join with newlines
+    missing_list <- paste0("  - ", missingCols, collapse = "\n")
+
+    stop(paste0("Missing columns:\n", missing_list,
+                '\n\nBe sure to run "is_stationary" first to identify stationary blocks.'))
   }
 
   jiggle_check <- 'post_jiggle' %in% names(df)
@@ -100,7 +105,7 @@ TROLL_sensor_stable <- function(df,
     # **Reset good_flag per group** (marker to keep final "_stable" flat as TRUE once one row meets range + slope thresholds combined)
     good_flag <- FALSE
 
-    # Set min_n rows slope and ranke OK flags to keep data if threshold is never met
+    # Set min_n rows slope and range OK flags to keep data if threshold is never met
     if(nrow(group_out) < min_n){
       msg_depth <- unique(stable_group_dat$stationary_depth)
       warning(paste0('The given "min_n" is larger than the number of stable data identified for ',value_name,' at',msg_depth,'.'))

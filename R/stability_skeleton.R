@@ -29,15 +29,15 @@ dat_stationary <- is_stationary(df = dat_rename,
                                 depth_col = depth_m,
                                 datetime_col = DateTime,
                                 depth_range_threshold = 0.1,
-                                stationary_secs = 45,
+                                stationary_secs = 35,
                                 rolling_range_secs = 10,
-                                start_trim_secs = 4,
+                                start_trim_secs = 15,
                                 drop_cols = TRUE,
                                 plot = TRUE)
 # 4. Optionally match stationary depths to target depths ----
 # troll_run_stats()
 # 5. Iteratively check sensor stability
-dat_stable <- TROLL_sensor_stable(dat_stationary,
+dat_stable <- TROLL_sensor_stable(dat_rename,
                                   value_col = pH_units,
                                   min_n = 5,
                                   slope_thresh = 0.05,

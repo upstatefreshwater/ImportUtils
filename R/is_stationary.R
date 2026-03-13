@@ -231,7 +231,7 @@ is_stationary <- function(df,
 
   if (drop_cols) {                                                                # Remove intermediate columns
     df_out <- df_out |>
-      dplyr::select(-c(is_stationary_initial, stationary_block_id,block_n,block_secs))
+      dplyr::select(-c(is_stationary_initial, block_n, block_secs))
   }
 
 
