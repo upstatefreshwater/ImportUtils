@@ -180,7 +180,7 @@ is_stationary <- function(df,
       dplyr::summarise(depth = round(mean({{depth_col}}, na.rm = TRUE), 1), .groups = "drop") |>
       dplyr::pull(depth)
   }
-  # Plotting as before
+  # unique stationary status's
   levels_list <- as.character(unique(df_out$is_stationary_status))
   # fixed colors
   mycolors <- c("0" = "red", "999" = "green")

@@ -1,11 +1,64 @@
+plot_stability <- function(df,
+                           value_col_sym,
+                           value_flag_col){
 
+  # value_col <- rlang::ensym(value_col)
+  # value_name <- rlang::as_name(value_col)
+  # value_flag_col <- paste0(value_name,"_stable")
+  value_flag_sym <- rlang::sym(value_flag_col)
+
+  p1 <-
+  ggplot(df, aes(DateTime, !!value_col_sym)) +
+
+    # all data as background
+    geom_point(aes(color = "Sonde Moving"), size = 1) +
+
+    # stationary periods
+    geom_point(
+      data = dplyr::filter(df, is_stationary_status == 999),
+      aes(color = "Stable Stationary"),
+      size = 1.5,
+      pch = 19
+    ) +
+
+    # unstable pH during stationary periods
+    geom_point(
+      data = dplyr::filter(df,
+                           is_stationary_status == 999,
+                           !!value_flag_sym %in% FALSE),
+      aes(color = "Unstable Stationary"),
+      size = 1.5,
+      pch = 19
+    ) +
+
+    scale_color_manual(
+      name = "",
+      values = c(
+        "Sonde Moving" = "grey80",
+        "Stable Stationary" = "dodgerblue3",
+        "Unstable Stationary" = "firebrick1"
+      )
+    ) +
+
+    theme_bw() +
+    theme(legend.position = "right")
+
+  print(p1)
+}
+# plot_stability(df = dat_stable,
+#                value_col_sym = rlang::ensym(pH_units),
+#                value_flag_col = paste0(rlang::as_name(rlang::ensym(pH_units)),"_stable"))
+
+################3
 TROLL_sensor_stable <- function(df,
                                 value_col = pH_units,
                                 min_secs = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
-                                # sampling_int = 2,        # seconds
                                 slope_thresh = 0.05,     # units/minute
                                 range_thresh = 0.02,
-                                stationary_thresh = 998){# remove_jiggle = TRUE
+                                stationary_thresh = 998,
+                                drop_cols = TRUE,
+                                verbose = FALSE,
+                                plot = FALSE){
   # 0. --- Tidy Eval --- ----
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
@@ -45,9 +98,11 @@ TROLL_sensor_stable <- function(df,
                 'Max "is_stationary_status = ', max_stnthresh,' seconds.'))
   }
 
-  message(paste0('Stationary depths at:\n',
-                 paste0(round(z_stationary,2),collapse = '\n'),
-                 '\nfound in the data'))
+  if(verbose){
+    message(paste0('Stationary depths at:\n',
+                   paste0(round(z_stationary,2),collapse = '\n'),
+                   '\nfound in the data'))
+  }
 
   # 2. --- Calculate min_obs to keep --- ----
   samp_int <- get_sample_interval(datetime_data = df$DateTime, output_units = 'secs',tol_prop = 1)
@@ -90,7 +145,7 @@ TROLL_sensor_stable <- function(df,
   out_list <- vector("list", length(dat_grouped))
 
   for (i in seq_along(dat_grouped)) { # seq_along gives list length as 1:length(list)
-
+    #  **** Extract one stationary group of data within a loop ----
     stable_group_dat <- dat_grouped[[i]]                    # Extract one stable group of data
 
     n <- nrow(stable_group_dat)                             # length of the stable block (rows)
@@ -101,7 +156,7 @@ TROLL_sensor_stable <- function(df,
       stop(paste0('Zero data returned for depth ',msg_depth))
     }
 
-    # Pre-allocate group output dataframe
+    # **** Pre-allocate group output dataframe ----
     group_out <- tibble::tibble(
       stationary_block_id = stable_group_dat$stationary_block_id,
       DateTime = stable_group_dat$DateTime,
@@ -146,6 +201,7 @@ TROLL_sensor_stable <- function(df,
 
     n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
 
+    # **** Loop over grouped data ----
     for(win_start in seq_len(n_windows)) {                  # Because seq_along(0) = 1, this always works
       # Create an index to subset group data on from the start of the window to the end of the stable data block
       idx <- win_start:n
@@ -154,7 +210,7 @@ TROLL_sensor_stable <- function(df,
       x <- x_all[idx]
       y <- y_all[idx]
 
-      # --- Calculate stats ---
+      # **** --- Calculate stats --- ----
 
       # Slope
       v <- stats::var(x)
@@ -172,7 +228,7 @@ TROLL_sensor_stable <- function(df,
       # Range
       win_range <- diff(range(y))
 
-      # Add stats and metadata to output object
+      # Add stats and metadata to output object at the start index for grouped data
       group_out$slope[win_start] <- slope_fit
       group_out$range[win_start] <- win_range
 
@@ -199,6 +255,9 @@ TROLL_sensor_stable <- function(df,
     }
     out_list[[i]] <- group_out
   }
+
+
+  # . Compile data output --- ----
   # Compile the group_out into a dataframe
   out <- dplyr::bind_rows(out_list)
 
@@ -206,15 +265,28 @@ TROLL_sensor_stable <- function(df,
   final <- df |>
     dplyr::left_join(out, by = c("stationary_block_id","DateTime"))
 
+  # 6. --- Optional Plotting --- ----
+  if(plot == TRUE){
+    plot_stability(df = final,
+                   value_col_sym = value_col,
+                   value_flag_col = value_flag_col)
+  }
+
   return(final)
 }
 
 
 xx <-
   TROLL_sensor_stable(df = dat_stationary,
-                      value_col = 'pH_units',
+                      value_col = sp_conductivity_uScm,
                       stationary_thresh = 998,
                       min_secs = 5,
-                      slope_thresh = 0.05);xx
+                      slope_thresh = 0.1,
+                      range_thresh = 0.1,
+                      drop_cols = TRUE,
+                      verbose = FALSE,
+                      plot = TRUE);xx
+
+# Need to deal with y axis scaling when it blows up
 
 
