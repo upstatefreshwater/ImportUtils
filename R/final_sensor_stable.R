@@ -55,6 +55,96 @@ plot_stability <- function(df,
 #                value_flag_col = paste0(rlang::as_name(rlang::ensym(pH_units)),"_stable"))
 
 ################3
+#' Identify Stable Sensor Values Within Stationary Profiling Blocks
+#'
+#' Evaluates whether sensor measurements collected during stationary profiling
+#' periods are stable based on slope and range thresholds. Stability is assessed
+#' within each stationary block identified by \code{is_stationary()}, and the
+#' function flags observations that meet both slope and range criteria.
+#'
+#' For each stationary block, the function iteratively evaluates windows of data
+#' beginning at each observation and extending to the end of the block. The slope
+#' (units per minute) and value range are calculated for each window. If both
+#' metrics fall within the specified thresholds, the observation and all
+#' subsequent rows in that block are flagged as stable.
+#'
+#' A minimum duration of data can be enforced using \code{min_secs}, which is
+#' converted internally to a minimum number of observations based on the sampling
+#' interval.
+#'
+#' This function requires that stationary blocks have already been identified
+#' using \code{\link{is_stationary}}.
+#'
+#' @param df A data frame containing sensor data and stationary block metadata.
+#'
+#' @param value_col Unquoted name of the sensor column to evaluate for stability
+#'   (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).
+#'
+#' @param min_secs Minimum duration (seconds) of observations required to compute
+#'   stability statistics. This value is converted internally to the minimum
+#'   number of observations required in a stationary block. Default is \code{5}.
+#'
+#' @param slope_thresh Maximum allowable absolute slope (units per minute) for
+#'   stable measurements. Default is \code{0.05}.
+#'
+#' @param range_thresh Maximum allowable range (max - min) of values within the
+#'   evaluation window for stability. Default is \code{0.02}.
+#'
+#' @param stationary_thresh Minimum value of \code{is_stationary_status} (seconds)
+#'   used to define stationary periods to evaluate. Default is \code{998}.
+#'
+#' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
+#'   columns used during slope and range calculations are removed from the
+#'   returned data frame.
+#'
+#' @param verbose Logical. If \code{TRUE}, prints the depths where stationary
+#'   blocks were identified.
+#'
+#' @param plot Logical. If \code{TRUE}, produces a diagnostic stability plot
+#'   using \code{plot_stability()}.
+#'
+#' @details
+#' The function requires the following columns in \code{df}:
+#'
+#' \itemize{
+#'   \item \code{DateTime}
+#'   \item \code{depth_m}
+#'   \item \code{stationary_depth}
+#'   \item \code{stationary_block_id}
+#'   \item \code{is_stationary_status}
+#'   \item the column specified by \code{value_col}
+#' }
+#'
+#' Observations containing \code{NA} in \code{value_col} are excluded from
+#' stability calculations.
+#'
+#' A new logical column is added to the output named
+#' \code{<value_col>_stable}, indicating whether each observation meets
+#' the stability criteria.
+#'
+#' @return
+#' A data frame with the original input data plus a logical stability flag
+#' column named \code{<value_col>_stable}. If \code{drop_cols = FALSE},
+#' additional diagnostic columns describing slope, range, and window
+#' metadata are included.
+#'
+#' @examples
+#' \dontrun{
+#' dat <- is_stationary(sensor_data)
+#'
+#' dat <- TROLL_sensor_stable(
+#'   df = dat,
+#'   value_col = pH_units,
+#'   min_secs = 5,
+#'   slope_thresh = 0.05,
+#'   range_thresh = 0.02
+#' )
+#' }
+#'
+#' @seealso
+#' \code{\link{is_stationary}}
+#'
+#' @export
 TROLL_sensor_stable <- function(df,
                                 value_col = pH_units,
                                 min_secs = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
@@ -269,6 +359,16 @@ TROLL_sensor_stable <- function(df,
   # join the out metadata with the input dataframe
   final <- df |>
     dplyr::left_join(out, by = c("stationary_block_id","DateTime"))
+
+  # Drop optional columns
+  if(drop_cols){
+    final <- final |>
+      dplyr::select(-c(n_used,slope,range,n_dropped,slope_ok,range_ok))
+  }
+
+  # Put the flag next to the sensor data column
+  final <- final |>
+    dplyr::relocate(all_of(value_flag_col), .after = all_of(value_name))
 
   # 6. --- Optional Plotting --- ----
   if(plot == TRUE){
