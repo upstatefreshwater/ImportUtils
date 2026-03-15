@@ -1,37 +1,39 @@
 plot_stability <- function(df,
                            value_col_sym,
-                           value_flag_col){
+                           value_flag_col,
+                           range_thresh){
 
   # value_col <- rlang::ensym(value_col)
   # value_name <- rlang::as_name(value_col)
   # value_flag_col <- paste0(value_name,"_stable")
   value_flag_sym <- rlang::sym(value_flag_col)
 
+  rangelines <- median(df[[rlang::as_name(value_col_sym)]],na.rm = TRUE)
   p1 <-
-  ggplot(df, aes(DateTime, !!value_col_sym)) +
+  ggplot2::ggplot(df, ggplot2::aes(DateTime, !!value_col_sym)) +
 
     # all data as background
-    geom_point(aes(color = "Sonde Moving"), size = 1) +
+    ggplot2::geom_point(ggplot2::aes(color = "Sonde Moving"), size = 1) +
 
     # stationary periods
-    geom_point(
+    ggplot2::geom_point(
       data = dplyr::filter(df, is_stationary_status == 999),
-      aes(color = "Stable Stationary"),
+      ggplot2::aes(color = "Stable Stationary"),
       size = 1.5,
       pch = 19
     ) +
 
     # unstable pH during stationary periods
-    geom_point(
+    ggplot2::geom_point(
       data = dplyr::filter(df,
                            is_stationary_status == 999,
                            !!value_flag_sym %in% FALSE),
-      aes(color = "Unstable Stationary"),
+      ggplot2::aes(color = "Unstable Stationary"),
       size = 1.5,
       pch = 19
     ) +
 
-    scale_color_manual(
+    ggplot2::scale_color_manual(
       name = "",
       values = c(
         "Sonde Moving" = "grey80",
@@ -40,8 +42,11 @@ plot_stability <- function(df,
       )
     ) +
 
-    theme_bw() +
-    theme(legend.position = "right")
+    # Add a lines representing the range threshold
+    ggplot2::geom_hline(yintercept = c(rangelines,rangelines + range_thresh)) +
+
+    ggplot2::theme_bw() +
+    ggplot2::theme(legend.position = "right")
 
   print(p1)
 }
@@ -269,7 +274,8 @@ TROLL_sensor_stable <- function(df,
   if(plot == TRUE){
     plot_stability(df = final,
                    value_col_sym = value_col,
-                   value_flag_col = value_flag_col)
+                   value_flag_col = value_flag_col,
+                   range_thresh = range_thresh)
   }
 
   return(final)
@@ -281,7 +287,7 @@ xx <-
                       value_col = sp_conductivity_uScm,
                       stationary_thresh = 998,
                       min_secs = 5,
-                      slope_thresh = 0.1,
+                      slope_thresh = 0.05,
                       range_thresh = 0.1,
                       drop_cols = TRUE,
                       verbose = FALSE,
