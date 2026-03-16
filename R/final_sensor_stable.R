@@ -381,17 +381,17 @@ TROLL_sensor_stable <- function(df,
   return(final)
 }
 
-
-xx <-
-  TROLL_sensor_stable(df = dat_stationary,
-                      value_col = sp_conductivity_uScm,
-                      stationary_thresh = 998,
-                      min_secs = 5,
-                      slope_thresh = 0.05,
-                      range_thresh = 0.1,
-                      drop_cols = TRUE,
-                      verbose = FALSE,
-                      plot = TRUE);xx
+#
+# xx <-
+#   TROLL_sensor_stable(df = dat_stationary,
+#                       value_col = sp_conductivity_uScm,
+#                       stationary_thresh = 998,
+#                       min_secs = 5,
+#                       slope_thresh = 0.05,
+#                       range_thresh = 0.1,
+#                       drop_cols = TRUE,
+#                       verbose = FALSE,
+#                       plot = TRUE);xx
 
 # Need to deal with y axis scaling when it blows up
 

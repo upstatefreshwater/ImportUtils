@@ -1,7 +1,7 @@
 source('R/TROLL_read_data.R')
 source('R/TROLL_rename_cols.R')
 source('R/is_stationary.R')
-# source('R/final_sensor_stable.R')
+source('R/final_sensor_stable.R')
 source('R/utils.R')
 
 
@@ -29,6 +29,7 @@ drop_cols = TRUE
 plot = TRUE
 
 # 0. Checks ----
+# Check that any user input range thresholds are named properly
 if(!is.null(range_thresholds)){
   badnames <- !names(range_thresholds) %in% stability_ranges$param
 
@@ -44,6 +45,8 @@ if(!is.null(range_thresholds)){
     ), call. = FALSE)
   }
 }
+
+
 # 1. Read Data ----
 dat_read <- TROLL_read_data(path = path)
 # 2. Rename Column and Clean unnecessary data ----
@@ -51,9 +54,18 @@ dat_rename <- TROLL_rename_cols(df = dat_read,
                                 trollcomm_serials = trollCOMM_serials,
                                 strip_metadata = TRUE,
                                 print_colnames = FALSE)
+# Check for presence of both DO mg/L and percent columns
+if(any(c('DO_mgL','DO_per') %in% names(dat_rename))){
+  if(!'DO_per' %in% names(dat_rename)){
+    warning('Dissolved oxygen concentration present but no percent data are included.')
+  }
+  if(!'DO_mgL' %in% names(dat_rename)){
+    warning('Dissolved oxygen percent present, but no concentration data are included.')
+  }
+}
 
 # 3. Identify parameter columns in data ----
-params <- names(dat_rename)[which(names(dat_rename) %in% troll_column_dictionary$canonical[troll_column_dictionary$core_param])]
+params <- names(dat_rename)[which(names(dat_rename) %in% troll_column_dictionary$canonical[troll_column_dictionary$stbl_calc])]
 
 if(length(params) <1 ){
   stop('No sensor data columns identified. Column names must be standardized using the "TROLL_rename_cols" function.')
@@ -101,14 +113,14 @@ for (i in seq_along(params)) {
   param_i <- rlang::sym(params[i])
 
   # Create a holder for the stability flag
-  flag_col <- paste0(param[i], "_stable")
+  flag_col <- paste0(params[i], "_stable")
 
   # Add the flag column only to output
   out_list[[i]] <- TROLL_sensor_stable(
     df = dat_stationary,
     value_col = !!param_i,
     min_secs = min_final_secs,
-    range_thresh = ranges$range_thresh[ranges$param == param[i]],                # Set the rolling range threshold for individual params in the data
+    range_thresh = ranges$range_thresh[ranges$param == params[i]],                # Set the rolling range threshold for individual params in the data
     stationary_thresh = stationary_thresh_secs
   ) |>
     dplyr::pull(flag_col)
@@ -117,7 +129,7 @@ for (i in seq_along(params)) {
 # locate each flag column next to the sensor data column its associated with
 out <- dplyr::bind_cols(out_list)
 
-junk <- dat_stationary |>
+out <- dat_stationary |>
  dplyr::bind_cols(out)
 
 # Relocate each flag next to its sensor column
