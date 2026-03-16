@@ -24,6 +24,7 @@ range_thresholds = NULL
 stationary_thresh_secs = 10
 
 # Optional controls
+summarize_data = TRUE
 check_target_depths = FALSE
 drop_cols = TRUE
 plot = TRUE
@@ -141,13 +142,66 @@ for (p in params) {
     )
 }
 
-# dat_stable <- TROLL_sensor_stable(dat_stationary,
-#                                   value_col = DO_mgL,
-#                                   min_secs = 5,
-#                                   slope_thresh = 0.05,
-#                                   range_thresh = 0.15,
-#                                   stationary_thresh = 998,
-#                                   drop_cols = FALSE)
+# 7.
+# 7. Summarize final results ----
+if(summarize_data){
+  out_final <- list()
+
+  # Add the flagged dataframe to output list
+  out_final[['Flagged_Data']] <- out
+
+  # Compute summarized median values using stable flags
+  stable_summary <- out %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(is_stationary_status == 999) %>%
+    dplyr::group_by(stationary_depth) %>%
+    dplyr::summarise(
+      dplyr::across(
+        dplyr::all_of(value_cols),
+        ~ {
+          flag_col <- paste0(dplyr::cur_column(), "_stable")
+          vals <- .x[which(.data[[flag_col]] == TRUE)]
+          if (length(vals) == 0) NA_real_ else median(vals, na.rm = TRUE)
+        },
+        .names = "{.col}_stable_median"
+      ),
+      .groups = "drop"
+    )
+
+  # Add the summarized data to the output list
+  out_final[['Summary_Data']] <- stable_summary
+}
+
+# 8. Optionally plot the medians over raw data ----
+
+if(plot){
+  ggplot2::ggplot() +
+    ggplot2::geom_point(data = out,
+                        ggplot2::aes(x = sp_conductivity_uScm, y = depth_m, color = 'Raw Data')) +
+    ggplot2::geom_path(data = out,
+                        ggplot2::aes(x = sp_conductivity_uScm, y = depth_m, color = 'Raw Data')) +
+    ggplot2::geom_point(data = stable_summary,
+                        ggplot2::aes(x = sp_conductivity_uScm_stable_median,y=stationary_depth, color = 'Final'),
+                        pch = 17, cex = 3) +
+    ggplot2::scale_y_reverse() +
+    ggplot2::labs(y = 'Depth (m)') +
+    ggplot2::scale_color_manual(name = '',
+                                values = c('Raw Data' = 'firebrick',
+                                           'Final' = 'dodgerblue')) +
+    cowplot::theme_cowplot()
+}
+# xx -----
+dat_stable <- TROLL_sensor_stable(dat_stationary,
+                                  value_col = DO_mgL,
+                                  min_secs = 5,
+                                  slope_thresh = 0.05,
+                                  range_thresh = 0.15,
+                                  stationary_thresh = 998,
+                                  drop_cols = FALSE,
+                                  plot = TRUE)
+
+
+
 
 
 
