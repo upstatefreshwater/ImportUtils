@@ -91,42 +91,51 @@ if(!is.null(range_thresholds)){
 
 }
 
+# Pre-allocate output
 out_list <- vector("list", length(params))
 names(out_list) <- paste0(params,'_stable')
 
-
-
+# Iterate over the unique parameters and check stability
 for (i in seq_along(params)) {
+  # Extract each parameter
   param_i <- rlang::sym(params[i])
-  # stop(print(param_i))
-  # print(param_i)
 
-  flag_col <- paste0(param_i, "_stable")
+  # Create a holder for the stability flag
+  flag_col <- paste0(param[i], "_stable")
 
+  # Add the flag column only to output
   out_list[[i]] <- TROLL_sensor_stable(
     df = dat_stationary,
     value_col = !!param_i,
     min_secs = min_final_secs,
-    range_thresh = ranges$range_thresh[ranges$param == param],
+    range_thresh = ranges$range_thresh[ranges$param == param[i]],                # Set the rolling range threshold for individual params in the data
     stationary_thresh = stationary_thresh_secs
   ) |>
     dplyr::pull(flag_col)
-
-
 }
+
+# locate each flag column next to the sensor data column its associated with
 out <- dplyr::bind_cols(out_list)
 
 junk <- dat_stationary |>
- dplyr::bind_cols(out) |>
-  dplyr::relocate(sp_conductivity_uScm_stable,.after = sp_conductivity_uScm)
+ dplyr::bind_cols(out)
 
-dat_stable <- TROLL_sensor_stable(dat_stationary,
-                                  value_col = DO_mgL,
-                                  min_secs = 5,
-                                  slope_thresh = 0.05,
-                                  range_thresh = 0.15,
-                                  stationary_thresh = 998,
-                                  drop_cols = FALSE)
+# Relocate each flag next to its sensor column
+for (p in params) {
+  out <- out |>
+    dplyr::relocate(
+      dplyr::all_of(paste0(p, "_stable")),
+      .after = dplyr::all_of(p)
+    )
+}
+
+# dat_stable <- TROLL_sensor_stable(dat_stationary,
+#                                   value_col = DO_mgL,
+#                                   min_secs = 5,
+#                                   slope_thresh = 0.05,
+#                                   range_thresh = 0.15,
+#                                   stationary_thresh = 998,
+#                                   drop_cols = FALSE)
 
 
 
