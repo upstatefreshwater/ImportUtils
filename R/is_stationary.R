@@ -43,6 +43,7 @@
 #'                             depth_range_threshold = 0.05)
 #' }
 #'
+#'
 #' @export
 is_stationary <- function(df,
                           depth_col = depth_m,

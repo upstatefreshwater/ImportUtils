@@ -145,3 +145,34 @@ trim_stationary_starts <- function(range_met_vector,
   return(out)
 }
 
+# Decimal Places ----
+# helper to extract decimal places
+decimalplaces <- function(x) {
+  if (abs(x - round(x)) > .Machine$double.eps^0.5) {
+    nchar(strsplit(sub('0+$', '', as.character(x)), ".", fixed = TRUE)[[1]][[2]])
+  } else {
+    return(0)
+  }
+}
+
+# Check function inputs that should be numeric ----
+check_numeric <- function(x, name, allow_zero = FALSE) {
+  if (!is.numeric(x) || length(x) != 1 || is.na(x)) {
+    stop(paste0("`", name, "` must be a single numeric value."))
+  }
+  if (allow_zero) {
+    if (x < 0) stop(paste0("`", name, "` must be >= 0."))
+  } else {
+    if (x <= 0) stop(paste0("`", name, "` must be > 0."))
+  }
+}
+
+# Check function inputs that should be logical ----
+check_logical <- function(x, name) {
+  if (!is.logical(x) || length(x) != 1 || is.na(x)) {
+    stop(paste0("`", name, "` must be TRUE or FALSE."))
+  }
+}
+
+
+

@@ -30,8 +30,6 @@
 #' dat <- TROLL_read_data("data/raw/troll_sensor_data.csv")
 #' }
 #'
-#' @importFrom readr read_csv
-#' @importFrom lubridate parse_date_time
 #'
 #' @export
 
