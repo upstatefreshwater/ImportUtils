@@ -150,24 +150,10 @@ if(summarize_data){
   # Add the flagged dataframe to output list
   out_final[['Flagged_Data']] <- out
 
-  # Compute summarized median values using stable flags
-  stable_summary <- out %>%
-    dplyr::ungroup() %>%
-    dplyr::filter(is_stationary_status == 999) %>%
-    dplyr::group_by(stationary_depth) %>%
-    dplyr::summarise(
-      dplyr::across(
-        dplyr::all_of(value_cols),
-        ~ {
-          flag_col <- paste0(dplyr::cur_column(), "_stable")
-          vals <- .x[which(.data[[flag_col]] == TRUE)]
-          if (length(vals) == 0) NA_real_ else median(vals, na.rm = TRUE)
-        },
-        .names = "{.col}_stable_median"
-      ),
-      .groups = "drop"
-    )
-
+  # Compile summarized dataframe using only stable data to calculate median
+  stable_summary <- TROLL_stable_summary(df = out,
+                               group_col = stationary_depth,
+                               summary_fn = median)
   # Add the summarized data to the output list
   out_final[['Summary_Data']] <- stable_summary
 }
@@ -181,7 +167,7 @@ if(plot){
     ggplot2::geom_path(data = out,
                         ggplot2::aes(x = sp_conductivity_uScm, y = depth_m, color = 'Raw Data')) +
     ggplot2::geom_point(data = stable_summary,
-                        ggplot2::aes(x = sp_conductivity_uScm_stable_median,y=stationary_depth, color = 'Final'),
+                        ggplot2::aes(x = sp_conductivity_uScm_stable,y=stationary_depth, color = 'Final'),
                         pch = 17, cex = 3) +
     ggplot2::scale_y_reverse() +
     ggplot2::labs(y = 'Depth (m)') +
@@ -189,6 +175,8 @@ if(plot){
                                 values = c('Raw Data' = 'firebrick',
                                            'Final' = 'dodgerblue')) +
     cowplot::theme_cowplot()
+
+
 }
 # xx -----
 dat_stable <- TROLL_sensor_stable(dat_stationary,
