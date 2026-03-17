@@ -155,8 +155,24 @@ decimalplaces <- function(x) {
   }
 }
 
-# TROLL detects sensor columns (for stability function) ----
+# Check function inputs that should be numeric ----
+check_numeric <- function(x, name, allow_zero = FALSE) {
+  if (!is.numeric(x) || length(x) != 1 || is.na(x)) {
+    stop(paste0("`", name, "` must be a single numeric value."))
+  }
+  if (allow_zero) {
+    if (x < 0) stop(paste0("`", name, "` must be >= 0."))
+  } else {
+    if (x <= 0) stop(paste0("`", name, "` must be > 0."))
+  }
+}
 
+# Check function inputs that should be logical ----
+check_logical <- function(x, name) {
+  if (!is.logical(x) || length(x) != 1 || is.na(x)) {
+    stop(paste0("`", name, "` must be TRUE or FALSE."))
+  }
+}
 
 
 

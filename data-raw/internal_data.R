@@ -60,6 +60,7 @@ stability_ranges <- tibble::tribble(
   "ORP_mv",                                 10
 
 )
+
 usethis::use_data(
   trollCOMM_serials,
   troll_serial_numbers,

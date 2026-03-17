@@ -2,6 +2,7 @@ source('R/TROLL_read_data.R')
 source('R/TROLL_rename_cols.R')
 source('R/is_stationary.R')
 source('R/final_sensor_stable.R')
+source('R/TROLL_stable_summary.R')
 source('R/utils.R')
 
 
@@ -27,7 +28,7 @@ stationary_thresh_secs = 10
 summarize_data = TRUE
 check_target_depths = FALSE
 drop_cols = TRUE
-plot = TRUE
+plot = c('Final' = FALSE,'Stationary' = FALSE)
 
 # 0. Checks ----
 # Check that any user input range thresholds are named properly
@@ -142,7 +143,6 @@ for (p in params) {
     )
 }
 
-# 7.
 # 7. Summarize final results ----
 if(summarize_data){
   out_final <- list()
@@ -160,22 +160,30 @@ if(summarize_data){
 
 # 8. Optionally plot the medians over raw data ----
 
-if(plot){
-  ggplot2::ggplot() +
-    ggplot2::geom_point(data = out,
-                        ggplot2::aes(x = sp_conductivity_uScm, y = depth_m, color = 'Raw Data')) +
-    ggplot2::geom_path(data = out,
-                        ggplot2::aes(x = sp_conductivity_uScm, y = depth_m, color = 'Raw Data')) +
-    ggplot2::geom_point(data = stable_summary,
-                        ggplot2::aes(x = sp_conductivity_uScm_stable,y=stationary_depth, color = 'Final'),
-                        pch = 17, cex = 3) +
-    ggplot2::scale_y_reverse() +
-    ggplot2::labs(y = 'Depth (m)') +
-    ggplot2::scale_color_manual(name = '',
-                                values = c('Raw Data' = 'firebrick',
-                                           'Final' = 'dodgerblue')) +
-    cowplot::theme_cowplot()
+if(plot_final){
+  for (i in params) {
 
+    flag_data_column <- rlang::sym(i)
+    summary_column <- rlang::sym(paste0(i,'_stable'))
+
+    print(
+    ggplot2::ggplot() +
+      ggplot2::geom_point(data = out,
+                          ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+      ggplot2::geom_path(data = out,
+                         ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+      ggplot2::geom_point(data = stable_summary,
+                          ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
+                          pch = 17, cex = 3) +
+      ggplot2::scale_y_reverse() +
+      ggplot2::labs(y = 'Depth (m)') +
+      ggplot2::scale_color_manual(name = '',
+                                  values = c('Raw Data' = 'firebrick',
+                                             'Final' = 'dodgerblue')) +
+      cowplot::theme_cowplot()
+    )
+
+  }
 
 }
 # xx -----
