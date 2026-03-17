@@ -39,4 +39,5 @@ the function will error.
 dat <- TROLL_read_data("data/raw/troll_sensor_data.csv")
 }
 
+
 }
