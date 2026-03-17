@@ -1,0 +1,337 @@
+# Argument validation helper
+validate_args <- function(
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stbl_min_secs, stbl_stationary_secs,
+    summarize_data, drop_cols, plot, stbl_range_thresholds,
+    stability_ranges # pass your defaults table
+) {
+
+  # --- Numeric checks ---
+  check_numeric(stn_depthrange, "stn_depthrange")
+  check_numeric(stn_secs, "stn_secs")
+  check_numeric(stn_rollwindow_secs, "stn_rollwindow_secs")
+  check_numeric(stn_startrim_secs, "stn_startrim_secs", allow_zero = TRUE)
+  check_numeric(stbl_min_secs, "stbl_min_secs")
+  check_numeric(stbl_stationary_secs, "stbl_stationary_secs")
+
+  if (stn_startrim_secs >= stn_secs) stop("`stn_startrim_secs` must be less than `stn_secs`.")
+  if (stn_rollwindow_secs > stn_secs) stop("`stn_rollwindow_secs` must be <= `stn_secs`.")
+
+  if (stbl_stationary_secs < stn_secs)
+    warning("`stbl_stationary_secs` < `stn_secs`; may exclude valid stationary periods.")
+  if (stbl_min_secs > stn_secs)
+    warning("`stbl_min_secs` > `stn_secs`; summaries may not be computed.")
+
+  # --- Logical checks ---
+  check_logical(summarize_data, "summarize_data")
+  check_logical(drop_cols, "drop_cols")
+
+  # --- Plot checks ---
+  if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
+  if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
+    stop("`plot` names must be 'Final' and/or 'Stationary'.")
+
+  # --- Range thresholds checks ---
+  if (!is.null(stbl_range_thresholds)) {
+    if (!is.numeric(stbl_range_thresholds))
+      stop("`stbl_range_thresholds` must be a numeric named vector.")
+    if (is.null(names(stbl_range_thresholds)) || any(names(stbl_range_thresholds) == ""))
+      stop("`stbl_range_thresholds` must have non-empty names.")
+    if (any(is.na(stbl_range_thresholds))) stop("`stbl_range_thresholds` cannot contain NA.")
+
+    unknown_params <- setdiff(names(stbl_range_thresholds), stability_ranges$param)
+    if (length(unknown_params) > 0)
+      warning("Ignoring unknown params in `stbl_range_thresholds`: ", paste(unknown_params, collapse = ", "))
+  }
+}
+
+# Argument normalization / updating helper
+normalize_args <- function(plot,
+                           stbl_range_thresholds,
+                           stability_ranges) {
+
+  # --- Normalize plotting vector ---
+  def_plot <- c(Final = FALSE, Stationary = FALSE)
+
+  # If single TRUE/FALSE, apply to both
+  if (length(plot) == 1 && is.logical(plot)) {
+    plot <- setNames(rep(plot, length(def_plot)), names(def_plot))
+  }
+
+  # If named vector, overwrite defaults
+  if (!is.null(names(plot))) {
+    def_plot[names(plot)] <- plot
+    plot <- def_plot
+  }
+
+  # --- Normalize thresholds ---
+  # Update default range thresholds with user provided input
+  if (is.logical(stbl_range_thresholds)) {
+    stop("\n`stbl_range_thresholds` must be numeric, not logical. Did you accidentally pass TRUE/FALSE?\n")
+  }
+
+  ranges <- stability_ranges
+  if (!is.null(stbl_range_thresholds)) {
+    update_tbl <- tibble::tibble(
+      param = names(stbl_range_thresholds),
+      range_thresh = unname(stbl_range_thresholds)
+    ) |>
+      dplyr::filter(param %in% ranges$param)
+    if (nrow(update_tbl) > 0) ranges <- dplyr::rows_update(ranges, update_tbl, by = "param")
+  }
+
+  list(plot = plot, ranges = ranges)
+}
+#' Bulk Process TROLL Sonde Profiles
+#'
+#' `TROLL_profile_compiler()` reads raw TROLL sonde data, identifies stationary periods,
+#' evaluates sensor stability for each parameter, optionally summarizes results,
+#' and provides optional plotting of raw and final summarized data.
+#'
+#' This function wraps several internal TROLL processing functions:
+#' - `TROLL_read_data()` to read raw CSV data
+#' - `TROLL_rename_cols()` to standardize column names
+#' - `is_stationary()` to detect stationary periods
+#' - `TROLL_sensor_stable()` to flag stable measurements
+#' - `TROLL_stable_summary()` to summarize median values for stable data
+#'
+#' @param path Character. Path to the raw TROLL CSV file.
+#' @param depth_col Unquoted column name for water depth (numeric). Must exist in the dataset.
+#' @param datetime_col Unquoted column name for date-time (POSIXct, POSIXt, or Date).
+#' @param stn_depthrange Numeric. Depth range threshold (meters) for `is_stationary()` rolling calculation.
+#' @param stn_secs Numeric. Minimum time (seconds) required for a stationary block to be considered fully stationary (`is_stationary_status = 999`) folling any `stn_startrim_secs` period.
+#' @param stn_rollwindow_secs Numeric. Window size (seconds) used to compute rolling range in `is_stationary()`.
+#' @param stn_startrim_secs Numeric. Seconds to trim from the start of each stationary block.
+#' @param stbl_min_secs Numeric. Minimum seconds used to calculate an individual summary statistic if stability is not reached within a stationary period.
+#' @param stbl_range_thresholds Optional named numeric vector. Custom stability thresholds per parameter. Names must match canonical sensor names. See `stability_ranges` for defaults.
+#' @param stbl_stationary_secs Numeric. Minimum `is_stationary_status` (seconds) to consider an observation for stability evaluation.
+#' @param summarize_data Logical. If `TRUE`, returns both `Flagged_Data` and `Summary_Data` (median during stable periods) as a named list.
+#' @param drop_cols Logical. If `TRUE`, intermediate columns from `is_stationary()` and `TROLL_sensor_stable()` are removed from final output.
+#' @param plot Logical or named logical vector. If `TRUE`, generates optional plots to evaluate both `is_stationary` and the final `Summary_Data`. If named, must include `"Final"` and/or `"Stationary"`. Single TRUE/FALSE applies to both.
+#'
+#' @return If `summarize_data = FALSE`, a `data.frame` containing raw sensor data with appended `_stable` flag columns located immediately after their corresponding sensor columns.
+#' If `summarize_data = TRUE`, a `list` with:
+#' - `Flagged_Data`: full data with `_stable` flags
+#' - `Summary_Data`: median summaries of stable sensor readings by stationary depth.
+#'
+#' @details
+#' - `TROLL_profile_compiler()` identifies stationary periods in sonde deployments
+#'   using rolling ranges. Arguments related to stationary detection preceded by `stn_`.
+#' - Sensor stability is assessed with `TROLL_sensor_stable()`, optionally using
+#'   custom thresholds.
+#' - Summaries are calculated via `TROLL_stable_summary()`.
+#' - Optional plotting overlays raw data, moving periods, and final median points.
+#'
+#' @examples
+#' \dontrun{
+#' # Compile a TROLL deployment file
+#' result <- TROLL_profile_compiler(
+#'   path = "inst/extdata/2025-09-16_LT1.csv",
+#'   depth_col = depth_m,
+#'   datetime_col = DateTime,
+#'   stn_depthrange = 0.1,
+#'   stn_secs = 45,
+#'   stbl_min_secs = 5,
+#'   plot = c(Final = TRUE, Stationary = FALSE)
+#' )
+#'
+#' # Access flagged data
+#' flagged <- result$Flagged_Data
+#'
+#' # Access median summary
+#' summary <- result$Summary_Data
+#' }
+#'
+#' @seealso
+#' \code{\link{TROLL_read_data}}, \code{\link{TROLL_rename_cols}},
+#' \code{\link{is_stationary}}, \code{\link{TROLL_sensor_stable}},
+#' \code{\link{TROLL_stable_summary}}
+#'
+#' @export
+TROLL_profile_compiler <- function(path,                                         # Path to csv file
+                                   depth_col,                                    # Unquoted depth data column name
+                                   datetime_col,                                 # Unquoted datetime data column name
+                                   # is_stationary
+                                   stn_depthrange = 0.1,                         # Rolling range setting input to is_stationary()
+                                   stn_secs = 45,                                # Time required after starttrim for is_stationary_status to be set to 999 (fully stationary)
+                                   stn_rollwindow_secs = 10,                     # Size of the window used to calculate rolling range within is_stationary()
+                                   stn_startrim_secs = 4,                        # Number of seconds to be trimmed off the start of each stationary block
+                                   # sensor_stable
+                                   stbl_min_secs = 5,                            # Minimum time to be used to calculate summary stat if stability is not detected within a stationary block
+                                   stbl_range_thresholds = NULL,                 # Optionally provide custom range thresholds for individual params to detect sensor stability
+                                   stbl_stationary_secs = 998,                    # Minimum value of "is_stationary_status" in seconds to be considered a stationary period
+                                   # Optional controls
+                                   summarize_data = TRUE,                        # Optionally compile the final data as median of stationary & stable periods
+                                   # check_target_depths = FALSE,                  # Option for user to check target depths against extracted stationary depths
+                                   drop_cols = TRUE,                             # Optionally return internmediate column from is_stationary and TROLL_sensor_stable
+                                   plot = c(Final = FALSE,Stationary = FALSE)    # Toggle optional plotting
+){
+
+
+  # 0. --- Input validation / Checks --- ----
+
+  # Validation helper
+  validate_args(
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stbl_min_secs, stbl_stationary_secs,
+    summarize_data, drop_cols, plot, stbl_range_thresholds,
+    stability_ranges
+  )
+
+  # 1. --- Update defaults w/ user inputs ----
+  # Normalization helper updates using user inputs
+  args_norm <- normalize_args(plot, stbl_range_thresholds, stability_ranges)
+
+  # Updated ranges
+  ranges <- args_norm$ranges
+
+  # Optional plotting
+  plot <- args_norm$plot
+
+  # 2. --- Data Read --- ----
+  dat_read <- TROLL_read_data(path = path)
+
+  # 2. --- Rename Column and Clean unnecessary data --- ----
+  dat_rename <- TROLL_rename_cols(df = dat_read,
+                                  trollcomm_serials = trollCOMM_serials,
+                                  strip_metadata = TRUE,
+                                  print_colnames = FALSE)
+
+  # Check data type of depth and datetime
+  if (!is.numeric(dat_rename[[rlang::as_string(depth_col)]])) {
+    stop("\n`depth_col` must be numeric.\n")
+  }
+
+  if (!inherits(dat_rename[[rlang::as_string(datetime_col)]], c("POSIXct", "POSIXt", "Date"))) {
+    warning("`datetime_col` is not a recognized datetime format. Attempting coercion.")
+  }
+  # Check for presence of both DO mg/L and percent columns
+  if(any(c('DO_mgL','DO_per') %in% names(dat_rename))){
+    if(!'DO_per' %in% names(dat_rename)){
+      warning('Dissolved oxygen concentration present but no percent data are included.')
+    }
+    if(!'DO_mgL' %in% names(dat_rename)){
+      warning('Dissolved oxygen percent present, but no concentration data are included.')
+    }
+  }
+
+
+
+  # 3. --- Identify parameter columns in data --- ----
+  params <- names(dat_rename)[which(names(dat_rename) %in% troll_column_dictionary$canonical[troll_column_dictionary$stbl_calc])]
+
+  if(length(params) <1 ){
+    stop('\nNo sensor data columns identified. Column names must be standardized using the "TROLL_rename_cols" function.\n')
+  }
+
+  # 4. --- Detect when sonde is stationary --- ----
+  dat_stationary <- is_stationary(df = dat_rename,
+                                  depth_col = !!depth_col,
+                                  datetime_col = !!datetime_col,
+                                  depth_range_threshold = stn_depthrange,
+                                  stationary_secs = stn_secs,
+                                  rolling_range_secs = stn_rollwindow_secs,
+                                  start_trim_secs = stn_startrim_secs,
+                                  drop_cols = drop_cols,
+                                  plot = plot["Stationary"])  # Control via named vector
+
+
+  # Warn if no stationary depths found
+  if(all(is.na(dat_stationary$stationary_depth))){
+    stop('\nNo stationary periods detected. Check setting for "stn_" inputs.\n')
+  }
+  # x. Optionally match stationary depths to target depths ----
+  # troll_run_stats()
+
+  # 5. --- Compile sensor stability flags --- ----
+  # Pre-allocate output
+  out_list <- vector("list", length(params))
+  names(out_list) <- paste0(params,'_stable')
+
+  # Iterate over the unique parameters and check stability
+  for (i in seq_along(params)) {
+    # Extract each parameter
+    param_i <- rlang::sym(params[i])
+
+    # Create a holder for the stability flag
+    flag_col <- paste0(params[i], "_stable")
+
+    # Add the flag column only to output
+    out_list[[i]] <- TROLL_sensor_stable(
+      df = dat_stationary,
+      value_col = !!param_i,
+      min_secs = stbl_min_secs,
+      range_thresh = ranges$range_thresh[ranges$param == params[i]],                # Set the rolling range threshold for individual params in the data
+      stationary_thresh = stbl_stationary_secs
+    ) |>
+      dplyr::pull(flag_col)
+  }
+
+  # locate each flag column next to the sensor data column its associated with
+  out <- dplyr::bind_cols(out_list)
+
+  out <- dat_stationary |>
+    dplyr::bind_cols(out)
+
+  # Relocate each flag next to its sensor column
+  for (p in params) {
+    out <- out |>
+      dplyr::relocate(
+        dplyr::all_of(paste0(p, "_stable")),
+        .after = dplyr::all_of(p)
+      )
+  }
+
+  # 6. --- Summarize final results --- ----
+  if(summarize_data){
+    out_final <- list()
+
+    # Add the flagged dataframe to output list
+    out_final[['Flagged_Data']] <- out
+
+    # Compile summarized dataframe using only stable data to calculate median
+    stable_summary <- TROLL_stable_summary(df = out,
+                                           group_col = stationary_depth,        # Bare column named OK, handled within function
+                                           summary_fn = median)
+    # Add the summarized data to the output list
+    out_final[['Summary_Data']] <- stable_summary
+  }
+
+  # 8. Optionally plot the medians over raw data ----
+  if(plot["Final"] & !summarize_data){
+    stop('\nCannot plot summary data when `summarize_data` is FALSE.')
+  }
+  if(plot["Final"] && summarize_data){
+    for (i in params) {
+
+      flag_data_column <- rlang::sym(i)
+      summary_column <- rlang::sym(paste0(i,'_stable'))
+
+      print(
+        ggplot2::ggplot() +
+          ggplot2::geom_point(data = out,
+                              ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+          ggplot2::geom_path(data = out,
+                             ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+          ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status <= stbl_stationary_secs),
+                              ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Sonde Moving')) +
+          ggplot2::geom_point(data = stable_summary,
+                              ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
+                              pch = 17, cex = 3) +
+          ggplot2::scale_y_reverse() +
+          ggplot2::scale_x_continuous(position = 'top') +
+          ggplot2::labs(y = 'Depth (m)') +
+          ggplot2::scale_color_manual(name = '',
+                                      values = c('Raw Data' = 'firebrick4',
+                                                 'Final' = 'dodgerblue',
+                                                 'Sonde Moving' = 'firebrick1')) +
+          cowplot::theme_cowplot()
+      )
+
+    }
+  }
+  # . --- Return Final Data --- ----
+  if(!summarize_data) return(out)
+  return(out_final)
+}
+
