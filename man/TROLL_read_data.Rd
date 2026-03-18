@@ -2,7 +2,7 @@
 % Please edit documentation in R/TROLL_read_data.R
 \name{TROLL_read_data}
 \alias{TROLL_read_data}
-\title{Read TAqua-Troll Data File}
+\title{Read Aqua-Troll Data File}
 \usage{
 TROLL_read_data(path)
 }
@@ -17,7 +17,7 @@ structure from the raw file.
 Reads a raw TROLL data file and automatically locates the header row
 containing `"Date Time"`. The function validates that the timestamp column
 exists and ensures that timestamps include **second-level resolution**.
-Supported timestamp formats are `"ymd HMS"` and `"mdy HMS"`. .
+Supported timestamp formats are `"ymd HMS"` and `"mdy HMS"`.
 }
 \details{
 The function performs several validation checks:

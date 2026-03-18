@@ -1,7 +1,7 @@
-#' Identify Stationary Periods in Sonde Depth Data
+#' Identify Stationary Periods in Depth Data
 #'
 #' This function flags periods where a sonde or depth sensor is effectively stationary based on a rolling range of depth measurements.
-#' It can handle irregular sampling intervals, optionally trims the start of stationary blocks to remove initial noisy data, and optionally plots
+#' It can handle irregular sampling intervals, optionally trims the start of stationary blocks, and optionally plots
 #' depth and rolling range over time.
 #'
 #' @param df A data frame containing depth and datetime observations.
@@ -14,10 +14,18 @@
 #' @param drop_cols Logical. If TRUE, intermediate columns used for computation are removed from the output. Default is `TRUE`.
 #' @param plot Logical. If TRUE, produces plots showing depth and rolling range with stationary periods highlighted. Default is `FALSE`.
 #'
-#' @return A data frame identical to `df` but with additional columns:
+#' @return A data frame identical to `df` but with additional columns (provided `drop_cols` is \code{TRUE}:
 #'   \describe{
 #'     \item{is_stationary_status}{Numeric. 999 = fully stationary block, intermediate values = partial stationary duration in seconds, 0 = not stationary.}
 #'     \item{stationary_depth}{Mean depth during stationary blocks (NA if not stationary).}
+#'   }
+#'
+#'   If `drop_cols` is \code{FALSE}, intermediate columns are retained in addition to \code{is_stationary_status, stationary_depth}:
+#'   \describe{
+#'   \item{is_stationary_initial}{Logical. TRUE = met rolling range criteria after `start_trim_secs` was applied, prior to application of `stationary_secs`.}
+#'   \item{stationary_block_id}{Numeric. Consecutive id's of data blocks, including non-stationary blocks}
+#'   \item{block_n}{Numeric. The number of observations in each stationary block}
+#'   \item{block_secs}{Numeric. Elapsed time in seconds of each stationary block.}
 #'   }
 #'
 #' @details
@@ -25,8 +33,9 @@
 #' It then computes a rolling range of depth values across a window size of length = `rolling_range_secs`.
 #' It identifies candidate stationary periods where the rolling range is below `depth_range_threshold`.
 #' The `start_trim_secs` parameter enables trimming of initial observations in a stationary block.
-#' Blocks shorter than `stationary_secs` are flagged with the block duration in seconds. Blocks longer than `stationary_secs` are flagged as 999.
-#' If the sampling interval exceeds 30 seconds, the sonde is assumed to be fixed, and all rows are returned with `is_stationary_status = 999`.
+#' Blocks shorter than `stationary_secs` are flagged with `is_stationary_status` equal to seconds stationary.
+#' Blocks longer than `stationary_secs` are flagged as 999. If the sampling interval exceeds 30 seconds,
+#' the sonde is assumed to be fixed, and all rows are returned with `is_stationary_status = 999`.
 #'
 #' @seealso \code{\link[zoo]{rollapply}}
 #'

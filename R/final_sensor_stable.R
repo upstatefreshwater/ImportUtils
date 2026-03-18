@@ -50,11 +50,8 @@ plot_stability <- function(df,
 
   print(p1)
 }
-# plot_stability(df = dat_stable,
-#                value_col_sym = rlang::ensym(pH_units),
-#                value_flag_col = paste0(rlang::as_name(rlang::ensym(pH_units)),"_stable"))
 
-################3
+
 #' Identify Stable Sensor Values Within Stationary Profiling Blocks
 #'
 #' Evaluates whether sensor measurements collected during stationary profiling
@@ -62,15 +59,19 @@ plot_stability <- function(df,
 #' within each stationary block identified by \code{is_stationary()}, and the
 #' function flags observations that meet both slope and range criteria.
 #'
-#' For each stationary block, the function iteratively evaluates windows of data
-#' beginning at each observation and extending to the end of the block. The slope
-#' (units per minute) and value range are calculated for each window. If both
-#' metrics fall within the specified thresholds, the observation and all
-#' subsequent rows in that block are flagged as stable.
+#' @details
+#'
+#' For each stationary block, the function iteratively calculates slope
+#' (units per minute) and value range, starting with the enitre stationary block,
+#' and then dropping one observation at a time, until `slope_thresh` and `range_thresh`
+#' are both met. If both metrics fall within the specified thresholds,
+#' the observation and all subsequent rows in that block are flagged as stable.
 #'
 #' A minimum duration of data can be enforced using \code{min_secs}, which is
 #' converted internally to a minimum number of observations based on the sampling
-#' interval.
+#' interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
+#' will be flagged as `<data_column_name>_stable` for only the `min_secs` before
+#' the sonde is in motion again.
 #'
 #' This function requires that stationary blocks have already been identified
 #' using \code{\link{is_stationary}}.
@@ -91,7 +92,8 @@ plot_stability <- function(df,
 #'   evaluation window for stability. Default is \code{0.02}.
 #'
 #' @param stationary_thresh Minimum value of \code{is_stationary_status} (seconds)
-#'   used to define stationary periods to evaluate. Default is \code{998}.
+#'   used to define stationary periods to evaluate. Default is \code{998} (only accepthing
+#'   stationary periods > `stationary_secs` in \code{is_stationary()}.
 #'
 #' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
 #'   columns used during slope and range calculations are removed from the

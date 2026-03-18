@@ -8,28 +8,21 @@ TROLL_rename_cols(
   df,
   trollcomm_serials = trollCOMM_serials,
   strip_metadata = TRUE,
-  print_colnames = FALSE
+  verbose = FALSE
 )
 }
 \arguments{
 \item{df}{A data frame read from a raw TROLL CSV export.}
 
-\item{trollcomm_serials}{A character vector of known TROLL-COM
-serial numbers. Defaults to \code{trollCOMM_serials}.}
+\item{trollcomm_serials}{A numeric vector of known TROLL-COM
+serial numbers. Defaults to the internal \code{trollCOMM_serials} lookup.}
 
 \item{strip_metadata}{Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.}
 
-\item{print_colnames}{Logical; if \code{TRUE}, prints the final
-standardized column names.}
-}
-\value{
-A data frame with validated and standardized column names.
-}
-\description{
-Cleans, validates, and standardizes raw TROLL CSV column names
-into names used throughout the package.
-}
-\details{
+\item{verbose}{Logical; if \code{TRUE}, prints the final
+  standardized column names to the console.
+
+#'@details
 The function performs the following steps:
 \enumerate{
   \item Detects and renames TROLL-COM temperature columns.
@@ -43,7 +36,14 @@ The function will stop execution if:
   \item Unknown columns are detected,
   \item Multiple columns map to the same canonical name,
   \item Required columns are missing.
+}}
 }
+\value{
+A data frame with validated and standardized column names.
+}
+\description{
+Cleans, validates, and standardizes raw TROLL CSV column names
+into names used throughout the package.
 }
 \seealso{
 \code{\link{troll_column_dictionary}}

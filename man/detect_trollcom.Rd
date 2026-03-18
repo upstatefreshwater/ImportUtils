@@ -9,7 +9,7 @@ detect_trollcom(data, trollCOMM_serials)
 \arguments{
 \item{data}{A data frame containing raw TROLL column names.}
 
-\item{trollCOMM_serials}{A character vector of known TROLL-COM
+\item{trollCOMM_serials}{A numeric vector of known TROLL-COM
 serial numbers used for detection.}
 }
 \value{

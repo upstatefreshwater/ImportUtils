@@ -195,7 +195,7 @@ TROLL_profile_compiler <- function(path,                                        
   dat_rename <- TROLL_rename_cols(df = dat_read,
                                   trollcomm_serials = trollCOMM_serials,
                                   strip_metadata = TRUE,
-                                  print_colnames = FALSE)
+                                  verbose = FALSE)
 
   # Check data type of depth and datetime
   if (!is.numeric(dat_rename[[rlang::as_string(depth_col)]])) {

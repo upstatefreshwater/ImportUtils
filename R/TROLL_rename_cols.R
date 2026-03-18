@@ -113,7 +113,7 @@ normalize_raw_names <- function(data) {
 #' is issued and no automatic renaming is performed.
 #'
 #' @param data A data frame containing raw TROLL column names.
-#' @param trollCOMM_serials A character vector of known TROLL-COM
+#' @param trollCOMM_serials A numeric vector of known TROLL-COM
 #'   serial numbers used for detection.
 #'
 #' @return A data frame with TROLL-COM temperature renamed if applicable.
@@ -223,6 +223,14 @@ strip_meta <- function(df,
 #' Cleans, validates, and standardizes raw TROLL CSV column names
 #' into names used throughout the package.
 #'
+#' @param df A data frame read from a raw TROLL CSV export.
+#' @param trollcomm_serials A numeric vector of known TROLL-COM
+#'   serial numbers. Defaults to the internal \code{trollCOMM_serials} lookup.
+#' @param strip_metadata Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.
+#' @param verbose Logical; if \code{TRUE}, prints the final
+#'   standardized column names to the console.
+#'
+#'#'@details
 #' The function performs the following steps:
 #' \enumerate{
 #'   \item Detects and renames TROLL-COM temperature columns.
@@ -238,13 +246,6 @@ strip_meta <- function(df,
 #'   \item Required columns are missing.
 #' }
 #'
-#' @param df A data frame read from a raw TROLL CSV export.
-#' @param trollcomm_serials A character vector of known TROLL-COM
-#'   serial numbers. Defaults to \code{trollCOMM_serials}.
-#' @param strip_metadata Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.
-#' @param print_colnames Logical; if \code{TRUE}, prints the final
-#'   standardized column names.
-#'
 #' @seealso \code{\link{troll_column_dictionary}}
 #'
 #' @return A data frame with validated and standardized column names.
@@ -254,7 +255,7 @@ strip_meta <- function(df,
 TROLL_rename_cols <- function(df,
                              trollcomm_serials = trollCOMM_serials,
                              strip_metadata = TRUE,
-                             print_colnames = FALSE) {
+                             verbose = FALSE) {
 
   # 1. Detect TrollCOM
   detected_df <- detect_trollcom(data = df, trollCOMM_serials = trollcomm_serials)
@@ -269,7 +270,7 @@ TROLL_rename_cols <- function(df,
   final_df <- if (strip_metadata) strip_meta(schema_df) else schema_df
 
   # 5. Optionally print columns
-  if (print_colnames) {
+  if (verbose) {
     message("The CSV has Columns:\n  - ", paste(colnames(final_df), collapse = "\n  - "))
   }
 

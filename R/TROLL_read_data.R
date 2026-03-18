@@ -1,9 +1,9 @@
-#' Read TAqua-Troll Data File
+#' Read Aqua-Troll Data File
 #'
 #' Reads a raw TROLL data file and automatically locates the header row
 #' containing `"Date Time"`. The function validates that the timestamp column
 #' exists and ensures that timestamps include **second-level resolution**.
-#' Supported timestamp formats are `"ymd HMS"` and `"mdy HMS"`. .
+#' Supported timestamp formats are `"ymd HMS"` and `"mdy HMS"`.
 #'
 #' @param path Character string. File path to the raw TROLL data file.
 #'
