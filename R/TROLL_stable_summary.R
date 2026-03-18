@@ -20,6 +20,8 @@
 #' @return A data frame with one row per group and summarized
 #'   sensor values for each parameter.
 #'
+#' @importFrom stats median setNames
+#'
 #' @export
 TROLL_stable_summary <- function(df,
                                  group_col = stationary_depth,

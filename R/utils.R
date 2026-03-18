@@ -58,7 +58,7 @@ get_sample_interval <- function(datetime_data,
         "Dominant interval: ", sampling_int, " ", output_units,
         " (", round(prop * 100, 1), "% of records).\n",
         "Interval distribution:\n",
-        paste(capture.output(print(dist_table, row.names = FALSE)),
+        paste(utils::capture.output(print(dist_table, row.names = FALSE)),
               collapse = "\n")
       ),
       call. = FALSE

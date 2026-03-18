@@ -8,7 +8,7 @@ plot_stability <- function(df,
   # value_flag_col <- paste0(value_name,"_stable")
   value_flag_sym <- rlang::sym(value_flag_col)
 
-  rangelines <- median(df[[rlang::as_name(value_col_sym)]],na.rm = TRUE)
+  rangelines <- stats::median(df[[rlang::as_name(value_col_sym)]],na.rm = TRUE)
   p1 <-
   ggplot2::ggplot(df, ggplot2::aes(DateTime, !!value_col_sym)) +
 

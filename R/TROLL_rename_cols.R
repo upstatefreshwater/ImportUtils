@@ -147,7 +147,7 @@ detect_trollcom <- function(data,
     # If only one serial detected, rename the temp to avoid conflicts with water temp
     if (length(comm_sn) == 1) {
 
-      comm_tempcol <- paste0("Temperature (°C) (", comm_sn, ")") # Need to apply the correct s/n in column name
+      comm_tempcol <- paste0("Temperature (\u00B0C) (", comm_sn, ")") # Need to apply the correct s/n in column name (escape avoids ASCII symbol)
 
       if (comm_tempcol %in% names(data)) {
 
@@ -239,10 +239,13 @@ strip_meta <- function(df,
 #' }
 #'
 #' @param df A data frame read from a raw TROLL CSV export.
-#' @param trollcomm_serialnums A character vector of known TROLL-COM
+#' @param trollcomm_serials A character vector of known TROLL-COM
 #'   serial numbers. Defaults to \code{trollCOMM_serials}.
+#' @param strip_metadata Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.
 #' @param print_colnames Logical; if \code{TRUE}, prints the final
 #'   standardized column names.
+#'
+#' @seealso \code{\link{troll_column_dictionary}}
 #'
 #' @return A data frame with validated and standardized column names.
 #'

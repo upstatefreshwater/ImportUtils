@@ -20,9 +20,11 @@ Imports:
     dplyr,
     tibble,
     lubridate,
+	patchwork,
     purrr,
     ggplot2,
     cowplot,
+	RColorBrewer,
     readr,
     stringr,
     zoo	

@@ -14,11 +14,13 @@ TROLL_rename_cols(
 \arguments{
 \item{df}{A data frame read from a raw TROLL CSV export.}
 
+\item{trollcomm_serials}{A character vector of known TROLL-COM
+serial numbers. Defaults to \code{trollCOMM_serials}.}
+
+\item{strip_metadata}{Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.}
+
 \item{print_colnames}{Logical; if \code{TRUE}, prints the final
 standardized column names.}
-
-\item{trollcomm_serialnums}{A character vector of known TROLL-COM
-serial numbers. Defaults to \code{trollCOMM_serials}.}
 }
 \value{
 A data frame with validated and standardized column names.
@@ -42,4 +44,7 @@ The function will stop execution if:
   \item Multiple columns map to the same canonical name,
   \item Required columns are missing.
 }
+}
+\seealso{
+\code{\link{troll_column_dictionary}}
 }
