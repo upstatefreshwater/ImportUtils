@@ -50,7 +50,8 @@ TROLL_stable_summary <- function(df,
         dplyr::all_of(value_cols),
         ~{
           flag_col <- paste0(dplyr::cur_column(), "_stable")
-          vals <- .x[.data[[flag_col]]]
+          flag_idx <- dplyr::cur_data()[[flag_col]]
+          vals <- .x[flag_idx]
           if (length(vals) == 0) NA_real_ else summary_fn(vals, na.rm = TRUE)
         },
         .names = "{.col}_stable"

@@ -97,7 +97,7 @@ is_stationary <- function(df,
   # 0-a. --- If sonde fixed in position, return data with is_stationary_status == 999 for all rows ---
   if(samp_int > 30){
     z_range <- range(df[[rlang::as_name(depth_col)]], na.rm = TRUE)
-    if(z_range > 0.75){
+    if(diff(z_range) > 0.75){
       stop('Sampling interval > 30s suggests sonde fixed in position, but depth is variable.\n\n
            Review raw data and trim as necessary to proceed.')
     } else{

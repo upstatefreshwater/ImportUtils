@@ -169,7 +169,10 @@ TROLL_profile_compiler <- function(path,                                        
 
 
   # 0. --- Input validation / Checks --- ----
-
+  # Tidy eval
+  depth_col <- rlang::enquo(depth_col)
+  depth_name <- rla
+  datetime_col <-  rlang::enquo(datetime_col)
   # Validation helper
   validate_args(
     stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
