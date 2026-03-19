@@ -3,7 +3,7 @@
 #' Summarizes sensor values using only observations flagged as stable
 #' (i.e., where corresponding `<sensor>_stable` columns are `TRUE`).
 #'
-#' Intended to create final values from the \code{TROLL_batchprocess}
+#' Intended to create final values from the \code{TROLL_profile_compiler}
 #' function.
 #'
 #' The function automatically detects data columns paired with

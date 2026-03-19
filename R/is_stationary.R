@@ -52,7 +52,7 @@
 #'                             depth_range_threshold = 0.05)
 #' }
 #'
-#'
+#' @importFrom rlang .data
 #' @export
 is_stationary <- function(df,
                           depth_col = depth_m,
@@ -96,11 +96,16 @@ is_stationary <- function(df,
 
   # 0-a. --- If sonde fixed in position, return data with is_stationary_status == 999 for all rows ---
   if(samp_int > 30){
+    if(range(df[[rlang::as.name(depth_col)]], na.rm = TRUE) > 0.75){
+      stop('Sampling interval > 30s suggests sonde fixed in position, but depth is variable.\n\n
+           Review raw data and trim as necessary to proceed.')
+    } else{
     # Would be good to automate a depth check in here
     message("Sampling interval > 30s detected. Sonde assumed fixed in position.")
-    return(df |> dplyr::mutate(is_stationary_status = 999))
+    return(df |> dplyr::mutate(is_stationary_status = 999,
+                               stationary_depth = stats::median(rlang::as_name(depth_col))))
+    }
   }
-
   # 1. --- Create objects needed for flagging stationary blocks --- ----
   stationary_n <- ceiling(stationary_secs / samp_int)                           # The number of obs needed to be considered fully stationary
   rolling_n <- ceiling(rolling_range_secs / samp_int)                           # The number of obs needed for the rolling range window
@@ -113,7 +118,7 @@ is_stationary <- function(df,
   # If window is more than the number of rows in the dataset
   if(rolling_n > nrow(df)){
     rolling_n <- nrow(df)
-    warning(paste('Number of rows in data exceeds the number of observations required for rolling range calculation./n
+    warning(paste('Number of rows in data exceeds the number of observations required for rolling range calculation.\n
                   Range calculation will use the maximum # of rows:', rolling_n))
   }
 
@@ -179,6 +184,7 @@ is_stationary <- function(df,
   # Warning for time jumps (missing data due to bluetooth glitch) would have occurred when sampling interval was calculated
 
   # 6. --- Optional Plotting --- ----
+  if(plot) {
   # Line values at depths above the minimum stationary time
   if('obs_depth' %in% names(df_out)){
     stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status == 999])
@@ -225,12 +231,12 @@ is_stationary <- function(df,
     cowplot::theme_cowplot()
 
   print(patchwork::wrap_plots(p1, p2, ncol = 1))
-
+}
   # 7. --- Compile output Data --- ----
   #  7a.*** Compute stationary depths --- ----
   df_out <- df_out |>
     dplyr::group_by(stationary_block_id) |>
-    dplyr::mutate(stationary_depth = mean(depth_m, na.rm = TRUE),
+    dplyr::mutate(stationary_depth = mean(!!depth_col, na.rm = TRUE),
                   stationary_depth = ifelse(
                     is_stationary_status,
                     stationary_depth,

@@ -310,11 +310,11 @@ TROLL_profile_compiler <- function(path,                                        
       print(
         ggplot2::ggplot() +
           ggplot2::geom_point(data = out,
-                              ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+                              ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Raw Data')) +
           ggplot2::geom_path(data = out,
-                             ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Raw Data')) +
+                             ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Raw Data')) +
           ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status <= stbl_stationary_secs),
-                              ggplot2::aes(x = !!flag_data_column, y = depth_m, color = 'Sonde Moving')) +
+                              ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Sonde Moving')) +
           ggplot2::geom_point(data = stable_summary,
                               ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
                               pch = 17, cex = 3) +

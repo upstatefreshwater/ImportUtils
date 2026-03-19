@@ -28,8 +28,8 @@ apply_trollname_schema <- function(data,
   # For each column in the data, find a regex pattern from the dictionary, create a "map" for renaming columns (just a vector of canonical names)
   rename_map <- purrr::map_chr(names(data), function(col) {
 
-    matches <- troll_column_dictionary[
-      stringr::str_detect(col, troll_column_dictionary$pattern),
+    matches <- dictionary[
+      stringr::str_detect(col, dictionary$pattern),
     ]
 
     if (nrow(matches) == 1) {
