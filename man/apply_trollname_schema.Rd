@@ -4,7 +4,11 @@
 \alias{apply_trollname_schema}
 \title{Apply TROLL Column Naming Schema}
 \usage{
-apply_trollname_schema(data, dictionary = troll_column_dictionary)
+apply_trollname_schema(
+  data,
+  dictionary = troll_column_dictionary,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{data}{A data frame containing raw or partially normalized

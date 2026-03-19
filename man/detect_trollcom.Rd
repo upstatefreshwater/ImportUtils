@@ -4,7 +4,7 @@
 \alias{detect_trollcom}
 \title{Detect and Rename TROLL-COM Temperature Column}
 \usage{
-detect_trollcom(data, trollCOMM_serials)
+detect_trollcom(data, trollCOMM_serials, verbose = FALSE)
 }
 \arguments{
 \item{data}{A data frame containing raw TROLL column names.}

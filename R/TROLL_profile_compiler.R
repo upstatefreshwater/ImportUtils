@@ -84,49 +84,67 @@ normalize_args <- function(plot,
 }
 #' Bulk Process TROLL Sonde Profiles
 #'
-#' `TROLL_profile_compiler()` reads raw TROLL sonde data, identifies stationary periods,
+#' \code{TROLL_profile_compiler()} reads raw TROLL sonde data, identifies stationary periods,
 #' evaluates sensor stability for each parameter, optionally summarizes results,
 #' and provides optional plotting of raw and final summarized data.
 #'
-#' This function wraps several internal TROLL processing functions:
-#' - `TROLL_read_data()` to read raw CSV data
-#' - `TROLL_rename_cols()` to standardize column names
-#' - `is_stationary()` to detect stationary periods
-#' - `TROLL_sensor_stable()` to flag stable measurements
-#' - `TROLL_stable_summary()` to summarize median values for stable data
-#'
 #' @param path Character. Path to the raw TROLL CSV file.
-#' @param depth_col Unquoted column name for water depth (numeric). Must exist in the dataset.
+#' @param depth_col Unquoted column name for water depth (numeric data).
 #' @param datetime_col Unquoted column name for date-time (POSIXct, POSIXt, or Date).
-#' @param stn_depthrange Numeric. Depth range threshold (meters) for `is_stationary()` rolling calculation.
-#' @param stn_secs Numeric. Minimum time (seconds) required for a stationary block to be considered fully stationary (`is_stationary_status = 999`) folling any `stn_startrim_secs` period.
-#' @param stn_rollwindow_secs Numeric. Window size (seconds) used to compute rolling range in `is_stationary()`.
+#' @param stn_depthrange Numeric. Depth range threshold for \code{is_stationary()}.
+#' @param stn_secs Numeric. Minimum time (seconds) required for a stationary block
+#'   to be considered fully stationary (flagged by: \code{is_stationary_status = 999}).
+#' @param stn_rollwindow_secs Numeric. Window size (seconds) used to compute rolling range for stationary detection.
 #' @param stn_startrim_secs Numeric. Seconds to trim from the start of each stationary block.
-#' @param stbl_min_secs Numeric. Minimum seconds used to calculate an individual summary statistic if stability is not reached within a stationary period.
-#' @param stbl_range_thresholds Optional named numeric vector. Custom stability thresholds per parameter. Names must match canonical sensor names. See `stability_ranges` for defaults.
-#' @param stbl_stationary_secs Numeric. Minimum `is_stationary_status` (seconds) to consider an observation for stability evaluation.
-#' @param summarize_data Logical. If `TRUE`, returns both `Flagged_Data` and `Summary_Data` (median during stable periods) as a named list.
-#' @param drop_cols Logical. If `TRUE`, intermediate columns from `is_stationary()` and `TROLL_sensor_stable()` are removed from final output.
-#' @param plot Logical or named logical vector. If `TRUE`, generates optional plots to evaluate both `is_stationary` and the final `Summary_Data`. If named, must include `"Final"` and/or `"Stationary"`. Single TRUE/FALSE applies to both.
+#' @param stbl_min_secs Numeric. Minimum seconds used to calculate a summary
+#'   statistic if stability is not reached within a stationary period.
+#' @param stbl_range_thresholds Optional named numeric vector. Custom stability
+#'   thresholds per parameter. See \code{\link{stability_ranges}} for defaults and naming.
+#' @param stbl_stationary_secs Numeric. Minimum \code{is_stationary_status} (seconds)
+#'   to consider an observation for stability evaluation.
+#' @param summarize_data Logical. If \code{TRUE}, returns both `$Flagged_Data`
+#'   and `$Summary_Data` (medians) as a list.
+#' @param drop_cols Logical. If \code{TRUE}, removes intermediate processing columns.
+#' @param plot Logical or named logical vector. Controls optional plotting from
+#' \code{is_stationary} and \code{TROLL_stable_summary}.
+#' Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.
 #'
-#' @return If `summarize_data = FALSE`, a `data.frame` containing raw sensor data with appended `_stable` flag columns located immediately after their corresponding sensor columns.
-#' If `summarize_data = TRUE`, a `list` with:
-#' - `Flagged_Data`: full data with `_stable` flags
-#' - `Summary_Data`: median summaries of stable sensor readings by stationary depth.
+#' @return The output depends on the \code{summarize_data} argument:
+#' \describe{
+#'   \item{If \code{summarize_data = FALSE}}{Returns a \code{data.frame} with
+#'   original sensor data and appended \code{_stable} logical flags.}
+#'   \item{If \code{summarize_data = TRUE}}{Returns a \code{list} containing:
+#'     \itemize{
+#'       \item \code{Flagged_Data}: The full data frame with stability flags.
+#'       \item \code{Summary_Data}: A summarized tibble of median sensor
+#'       readings for each stable stationary period.
+#'     }
+#'   }
+#' }
 #'
 #' @details
-#' - `TROLL_profile_compiler()` identifies stationary periods in sonde deployments
-#'   using rolling ranges. Arguments related to stationary detection preceded by `stn_`.
-#' - Sensor stability is assessed with `TROLL_sensor_stable()`, optionally using
-#'   custom thresholds.
-#' - Summaries are calculated via `TROLL_stable_summary()`.
-#' - Optional plotting overlays raw data, moving periods, and final median points.
+#' This function executes the TROLL processing workflow in the following order:
+#' \enumerate{
+#'   \item \bold{Ingestion & Cleanup:} Reads data via \code{TROLL_read_data()}
+#'   and standardizes names via \code{TROLL_rename_cols()}.
+#'   \item \bold{Stationary Detection:} Uses \code{is_stationary()} to identify
+#'   depths where the sonde was held steady. Arguments for this step are
+#'   prefixed with \code{stn_}.
+#'   \item \bold{Stability Evaluation:} Calls \code{TROLL_sensor_stable()} for
+#'   each parameter to identify "equilibrated" data points. Arguments for
+#'   this step are prefixed with \code{stbl_}. Core parameters in data are
+#'   automatically detected from: \code{troll_column_dictionary[troll_column_dictionary$stbl_calc==TRUE,]}.
+#'   \item \bold{Summarization:} If requested, calculates median values for stable
+#'   windows at each depth using \code{TROLL_stable_summary()}.
+#'   \item \bold{Visualization:} Optionally generates diagnostic plots comparing raw
+#'   profiles to filtered stationary/stable points.
+#' }
 #'
 #' @examples
 #' \dontrun{
-#' # Compile a TROLL deployment file
+#' # Standard profile compilation
 #' result <- TROLL_profile_compiler(
-#'   path = "inst/extdata/2025-09-16_LT1.csv",
+#'   path = "extdata/sonde_file.csv",
 #'   depth_col = depth_m,
 #'   datetime_col = DateTime,
 #'   stn_depthrange = 0.1,
@@ -135,15 +153,12 @@ normalize_args <- function(plot,
 #'   plot = c(Final = TRUE, Stationary = FALSE)
 #' )
 #'
-#' # Access flagged data
-#' flagged <- result$Flagged_Data
-#'
-#' # Access median summary
-#' summary <- result$Summary_Data
+#' # Access results
+#' head(result$Flagged_Data)
+#' head(result$Summary_Data)
 #' }
 #'
-#' @seealso
-#' \code{\link{TROLL_read_data}}, \code{\link{TROLL_rename_cols}},
+#' @seealso \code{\link{TROLL_read_data}}, \code{\link{TROLL_rename_cols}},
 #' \code{\link{is_stationary}}, \code{\link{TROLL_sensor_stable}},
 #' \code{\link{TROLL_stable_summary}}
 #'

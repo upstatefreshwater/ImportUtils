@@ -376,7 +376,8 @@ TROLL_sensor_stable <- function(df,
 
   # Put the flag next to the sensor data column
   final <- final |>
-    dplyr::relocate(all_of(value_flag_col), .after = all_of(value_name))
+    dplyr::relocate(all_of(value_flag_col), .after = all_of(value_name)) |>
+    dplyr::ungroup()
 
   # 6. --- Optional Plotting --- ----
   if(plot == TRUE){

@@ -1,7 +1,7 @@
 # path <-
-#   'inst/extdata/2025-05-13_LW1.csv'
+#   # 'inst/extdata/2025-05-13_LW1.csv'
 # # 'inst/extdata/2025-05-27_LT1.csv'
-# # 'inst/extdata/2025-09-16_LT1.csv'
+# 'inst/extdata/2025-09-16_LT1.csv'
 # # 'inst/extdata/2025-10-01_LW1.csv'
 #
 # dat_read <- TROLL_read_data(path)
@@ -12,7 +12,9 @@
 # dplyr::glimpse(dat_rename)
 #
 # dat_stationary <- is_stationary(df = dat_rename,
-#                                 stationary_secs = 30,
+#                                 stationary_secs = 1,
+#                                 start_trim_secs = 0,
+#                                 depth_range_threshold = 0.2,
 #                                 drop_cols = TRUE,
 #                                 plot = TRUE)
 # dplyr::glimpse(dat_stationary)
@@ -25,7 +27,12 @@
 # dplyr::glimpse(dat_summary)
 # dat_summary
 #
+# # xx <-
 # TROLL_profile_compiler(path = path,
 #                        depth_col = depth_m,
+#                        drop_cols = TRUE,
 #                        datetime_col = DateTime
 #                        )
+#
+# # names(xx$Flagged_Data)
+# # names(xx$Summary_Data)

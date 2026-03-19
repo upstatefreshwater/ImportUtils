@@ -245,7 +245,8 @@ is_stationary <- function(df,
                     is_stationary_status == 999,
                     stationary_depth,
                     NA
-                  ))
+                  )) |>
+    dplyr:::ungroup()
 
   #  7b.*** Remove unecessary columns --- ----
 
