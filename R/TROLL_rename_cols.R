@@ -235,6 +235,8 @@ strip_meta <- function(df,
 #' @param trollcomm_serials A numeric vector of known TROLL-COM
 #'   serial numbers. Defaults to the internal \code{trollCOMM_serials} lookup.
 #' @param strip_metadata Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.
+#' @param colname_dictionary Dataframe; default = `troll_column_dictionary`. Provided regex patterns and associated canonical naming schema for
+#' standardizing column names.
 #' @param verbose Logical; if \code{TRUE}, prints the final
 #'   standardized column names to the console.
 #'
@@ -261,9 +263,10 @@ strip_meta <- function(df,
 #' @export
 
 TROLL_rename_cols <- function(df,
-                             trollcomm_serials = trollCOMM_serials,
-                             strip_metadata = TRUE,
-                             verbose = FALSE) {
+                              trollcomm_serials = trollCOMM_serials,
+                              colname_dictionary = troll_column_dictionary,
+                              strip_metadata = TRUE,
+                              verbose = FALSE) {
 
   # 1. Detect TrollCOM
   detected_df <- detect_trollcom(data = df, trollCOMM_serials = trollcomm_serials)
@@ -273,10 +276,11 @@ TROLL_rename_cols <- function(df,
 
   # 3. Apply canonical schema
   schema_df <- apply_trollname_schema(normalized_df,
+                                      dictionary = colname_dictionary,
                                       verbose = verbose)
 
   # 4. Optionally strip metadata
-  final_df <- if (strip_metadata) strip_meta(schema_df) else schema_df
+  final_df <- if (strip_metadata) strip_meta(schema_df,troll_colname_dictionary = colname_dictionary) else schema_df
 
   # 5. Optionally print columns
   if (verbose) {
