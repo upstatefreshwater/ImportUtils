@@ -161,11 +161,16 @@ TROLL_sensor_stable <- function(df,
   value_name <- rlang::as_name(value_col)
   value_flag_col <- paste0(value_name,"_stable")
   # 1. --- Input/Validation checks --- ----
-
+  # Re-make stationary_block_id if status and depth are present
+  if(!'stationary_block_id' %in% names(df) && 'is_stationary_status' %in% names(df)){
+    df <- df |>
+      dplyr::mutate(stationary_block_id = dplyr::consecutive_id(is_stationary_status))
+  }
   # Check required columns exist
   req_cols <- c('DateTime','depth_m','stationary_depth','stationary_block_id','is_stationary_status',value_name)
 
   if(!all(req_cols %in% names(df))){
+
     missingCols <- req_cols[!req_cols %in% names(df)]
 
     # Add indentation to each column name and join with newlines

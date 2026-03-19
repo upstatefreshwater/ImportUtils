@@ -64,7 +64,7 @@ apply_trollname_schema <- function(data,
   names(data) <- rename_map
 
   # ---- Required columns check ----
-  required <- troll_column_dictionary$canonical[troll_column_dictionary$required]
+  required <- dictionary$canonical[dictionary$required]
 
   missing <- setdiff(required, names(data))
 
