@@ -239,7 +239,7 @@ is_stationary <- function(df,
     dplyr::group_by(stationary_block_id) |>
     dplyr::mutate(stationary_depth = mean(!!depth_col, na.rm = TRUE),
                   stationary_depth = ifelse(
-                    is_stationary_status,
+                    is_stationary_status == 999,
                     stationary_depth,
                     NA
                   ))
