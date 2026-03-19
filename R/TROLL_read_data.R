@@ -87,5 +87,8 @@ TROLL_read_data <- function(path){
     }
   }
 
+  # If parsing passes, update DateTime column formatting
+  data$`Date Time` <- parsed_hms
+
   return(data )
 }

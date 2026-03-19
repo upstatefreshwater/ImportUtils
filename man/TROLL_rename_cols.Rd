@@ -7,6 +7,7 @@
 TROLL_rename_cols(
   df,
   trollcomm_serials = trollCOMM_serials,
+  colname_dictionary = troll_column_dictionary,
   strip_metadata = TRUE,
   verbose = FALSE
 )
@@ -16,6 +17,9 @@ TROLL_rename_cols(
 
 \item{trollcomm_serials}{A numeric vector of known TROLL-COM
 serial numbers. Defaults to the internal \code{trollCOMM_serials} lookup.}
+
+\item{colname_dictionary}{Dataframe; default = `troll_column_dictionary`. Provided regex patterns and associated canonical naming schema for
+standardizing column names.}
 
 \item{strip_metadata}{Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.}
 

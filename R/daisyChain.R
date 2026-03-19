@@ -1,20 +1,22 @@
 # path <-
 #   # 'inst/extdata/2025-05-13_LW1.csv'
 # # 'inst/extdata/2025-05-27_LT1.csv'
-# 'inst/extdata/2025-09-16_LT1.csv'
+# # 'inst/extdata/2025-09-16_LT1.csv'
 # # 'inst/extdata/2025-10-01_LW1.csv'
+#   'inst/extdata/TROLL_exdata.csv'
 #
 # dat_read <- TROLL_read_data(path)
 # dplyr::glimpse(dat_read)
 #
 # dat_rename <- TROLL_rename_cols(df = dat_read,
-#                                 verbose = FALSE)
+#                                 strip_metadata = FALSE,
+# verbose = FALSE)
 # dplyr::glimpse(dat_rename)
 #
 # dat_stationary <- is_stationary(df = dat_rename,
-#                                 stationary_secs = 1,
-#                                 start_trim_secs = 0,
-#                                 depth_range_threshold = 0.2,
+#                                 stationary_secs = 45,
+#                                 start_trim_secs = 10,
+#                                 depth_range_threshold = 0.05,
 #                                 drop_cols = TRUE,
 #                                 plot = TRUE)
 # dplyr::glimpse(dat_stationary)
