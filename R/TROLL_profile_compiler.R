@@ -171,8 +171,10 @@ TROLL_profile_compiler <- function(path,                                        
   # 0. --- Input validation / Checks --- ----
   # Tidy eval
   depth_col <- rlang::enquo(depth_col)
-  depth_name <- rla
+  depth_name <- rlang::as_name(depth_col)
+
   datetime_col <-  rlang::enquo(datetime_col)
+  datetime_name <- rlang::as_name(datetime_col)
   # Validation helper
   validate_args(
     stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
@@ -201,11 +203,19 @@ TROLL_profile_compiler <- function(path,                                        
                                   verbose = FALSE)
 
   # Check data type of depth and datetime
-  if (!is.numeric(dat_rename[[rlang::as_string(depth_col)]])) {
+  # if (!is.numeric(dat_rename[[rlang::as_string(depth_col)]])) {
+  if (!(depth_name %in% names(dat_rename))) {
+    stop("\n`depth_col` was not found in input data after renaming.\n")
+  }
+  if (!(datetime_name %in% names(dat_rename))) {
+    stop("\n`datetime_col` was not found in input data after renaming.\n")
+  }
+
+  if (!is.numeric(dat_rename[[depth_name]])) {
     stop("\n`depth_col` must be numeric.\n")
   }
 
-  if (!inherits(dat_rename[[rlang::as_string(datetime_col)]], c("POSIXct", "POSIXt", "Date"))) {
+  if (!inherits(dat_rename[[datetime_name]], c("POSIXct", "POSIXt", "Date"))) {
     warning("`datetime_col` is not a recognized datetime format. Attempting coercion.")
   }
   # Check for presence of both DO mg/L and percent columns
@@ -308,16 +318,17 @@ TROLL_profile_compiler <- function(path,                                        
     for (i in params) {
 
       flag_data_column <- rlang::sym(i)
+      depth_column_sym <- rlang::sym(depth_name)
       summary_column <- rlang::sym(paste0(i,'_stable'))
 
       print(
         ggplot2::ggplot() +
           ggplot2::geom_point(data = out,
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Raw Data')) +
+                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
           ggplot2::geom_path(data = out,
-                             ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Raw Data')) +
+                             ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
           ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status <= stbl_stationary_secs),
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_col, color = 'Sonde Moving')) +
+                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
           ggplot2::geom_point(data = stable_summary,
                               ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
                               pch = 17, cex = 3) +
