@@ -207,7 +207,8 @@ TROLL_sensor_stable <- function(df,
   }
 
   # 2. --- Calculate min_obs to keep --- ----
-  samp_int <- get_sample_interval(datetime_data = df$DateTime, output_units = 'secs',tol_prop = 1)
+  samp_int <- get_sample_interval(datetime_data = df$DateTime, output_units = 'secs',
+                                  tol_prop = 1,suppress_warning = TRUE)
 
   min_obs <- ceiling(min_secs / samp_int)
   # Check that enough data points in every stationary block to accomodate min_obs

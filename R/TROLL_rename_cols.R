@@ -23,7 +23,8 @@
 #' @keywords internal
 
 apply_trollname_schema <- function(data,
-                                   dictionary = troll_column_dictionary) {
+                                   dictionary = troll_column_dictionary,
+                                   verbose = FALSE) {
 
   # For each column in the data, find a regex pattern from the dictionary, create a "map" for renaming columns (just a vector of canonical names)
   rename_map <- purrr::map_chr(names(data), function(col) {
@@ -75,8 +76,10 @@ apply_trollname_schema <- function(data,
     )
   }
 
+  if(verbose){
   message("Schema validation passed: ",
           ncol(data), " columns recognized.")
+  }
 
   data
 }
@@ -120,7 +123,8 @@ normalize_raw_names <- function(data) {
 #'
 #' @keywords internal
 detect_trollcom <- function(data,
-                            trollCOMM_serials) {
+                            trollCOMM_serials,
+                            verbose = FALSE) {
 
   # Extract columns that rely on the TROLL-comm (Baro press, internal temp)
   comm_cols <- names(data)[stringr::str_detect(
@@ -131,7 +135,9 @@ detect_trollcom <- function(data,
   # If no TROLL-comm data columns, just present a message to the console
   if (length(comm_cols) == 0) {
 
+    if(verbose){
     message("No TROLL-COM data columns detected.")
+    }
     return(data)
     # If there are data columns check that there is only a single s/n
   } else {
@@ -151,10 +157,12 @@ detect_trollcom <- function(data,
 
       if (comm_tempcol %in% names(data)) {
 
+        if(verbose){
         message(
           "TROLL-COM temperature detected (serial ", comm_sn, ").\n",
           "Renaming column: ", comm_tempcol
         )
+        }
 
         data <- data |>
           dplyr::rename(
@@ -264,7 +272,8 @@ TROLL_rename_cols <- function(df,
   normalized_df <- normalize_raw_names(detected_df)
 
   # 3. Apply canonical schema
-  schema_df <- apply_trollname_schema(normalized_df)
+  schema_df <- apply_trollname_schema(normalized_df,
+                                      verbose = verbose)
 
   # 4. Optionally strip metadata
   final_df <- if (strip_metadata) strip_meta(schema_df) else schema_df

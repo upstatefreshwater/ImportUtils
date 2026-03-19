@@ -63,9 +63,12 @@ is_stationary <- function(df,
                           start_trim_secs = 15,
                           drop_cols = TRUE,
                           plot = FALSE) {
-  # 00. --- rlang arguments --- ----
+  # 00. --- Tidy Eval --- ----
   depth_col <- rlang::enquo(depth_col)
   datetime_col <- rlang::enquo(datetime_col)
+
+  depth_name <- rlang::as_name(depth_col)
+  datetime_name <- rlang::as_name(datetime_col)
 
   # 0. --- Checks --- ----
   # df columns exist
@@ -79,13 +82,13 @@ is_stationary <- function(df,
 
   # df columns formatting
 
-  if (!is.numeric(df[[rlang::as_name(depth_col)]]) ||
-      !inherits(df[[rlang::as_name(datetime_col)]], "POSIXt")) {
+  if (!is.numeric(df[[depth_name]]) ||
+      !inherits(df[[datetime_name]], "POSIXt")) {
     stop('Required columns are incorrectly formatted.\nCheck that "depth_col" is numeric, and "datetime_col" is a POSIXt.')
   }
 
   # Check on sampling interval
-  samp_int <- get_sample_interval(df[[rlang::as_name(datetime_col)]]) # this will warn if multiple sampling intervals exist
+  samp_int <- get_sample_interval(df[[datetime_name]]) # this will warn if multiple sampling intervals exist
 
     # Check that the start_trim_secs is large enough to
 
@@ -96,7 +99,7 @@ is_stationary <- function(df,
 
   # 0-a. --- If sonde fixed in position, return data with is_stationary_status == 999 for all rows ---
   if(samp_int > 30){
-    z_range <- range(df[[rlang::as_name(depth_col)]], na.rm = TRUE)
+    z_range <- range(df[[depth_name]], na.rm = TRUE)
     if(diff(z_range) > 0.75){
       stop('Sampling interval > 30s suggests sonde fixed in position, but depth is variable.\n\n
            Review raw data and trim as necessary to proceed.')
@@ -125,7 +128,7 @@ is_stationary <- function(df,
 
   # 2. --- Compute rolling range --- ----
   # Pull depth values
-  depth_vals <- df[[rlang::as_name(depth_col)]]
+  depth_vals <- df[[depth_name]]
 
   # Rolling min and max
   roll_min <- zoo::rollapply(depth_vals, width = rolling_n, FUN = min, fill = NA, align = "right")
@@ -175,7 +178,7 @@ is_stationary <- function(df,
     dplyr::group_by(stationary_block_id, is_stationary_initial) |> # Include both so computation is done by T/F grouping on stationary_flag
     dplyr::mutate(
       block_n = dplyr::n(),
-      block_secs = as.numeric(max({{datetime_col}}) - min({{datetime_col}}), units = "secs"),
+      block_secs = as.numeric(max(!!datetime_col) - min(!!datetime_col), units = "secs"),
       is_stationary_status = dplyr::case_when(
         is_stationary_initial & block_secs >= stationary_secs ~ 999,
         is_stationary_initial & block_secs < stationary_secs ~ block_secs,
@@ -194,7 +197,7 @@ is_stationary <- function(df,
       df_out |>
       dplyr::filter(is_stationary_status == 999) |>
       dplyr::group_by(stationary_block_id) |>
-      dplyr::summarise(depth = round(mean({{depth_col}}, na.rm = TRUE), 1), .groups = "drop") |>
+      dplyr::summarise(depth = round(mean(!!depth_col, na.rm = TRUE), 1), .groups = "drop") |>
       dplyr::pull(depth)
   }
   # Plotting as before
@@ -212,7 +215,7 @@ is_stationary <- function(df,
     mycolors <- c(mycolors, setNames(pal, other_vals))
   }
 
-  p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = {{depth_col}})) +
+  p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = !!depth_col)) +
     ggplot2::geom_line(alpha = 0.4) +
     ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
     ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +

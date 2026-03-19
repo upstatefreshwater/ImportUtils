@@ -30,7 +30,8 @@ nearest_depth <- function(raw_z,
 
 get_sample_interval <- function(datetime_data,
                                 output_units = "secs",
-                                tol_prop = 1) {
+                                tol_prop = 1,
+                                suppress_warning = FALSE) {
 
   # Calculate sampling intervals
   all_ints <- as.numeric(diff(datetime_data), units = "secs")
@@ -52,17 +53,19 @@ get_sample_interval <- function(datetime_data,
       n = as.integer(counts)
     )
 
-    warning(
-      paste0(
-        "Inconsistent sampling intervals detected.\n",
-        "Dominant interval: ", sampling_int, " ", output_units,
-        " (", round(prop * 100, 1), "% of records).\n",
-        "Interval distribution:\n",
-        paste(utils::capture.output(print(dist_table, row.names = FALSE)),
-              collapse = "\n")
-      ),
-      call. = FALSE
-    )
+    if(!suppress_warning){
+      warning(
+        paste0(
+          "Inconsistent sampling intervals detected.\n",
+          "Dominant interval: ", sampling_int, " ", output_units,
+          " (", round(prop * 100, 1), "% of records) used for `samp_int`.\n",
+          "Interval distribution:\n",
+          paste(utils::capture.output(print(dist_table, row.names = FALSE)),
+                collapse = "\n")
+        ),
+        call. = FALSE
+      )
+    }
   }
 
   sampling_int

@@ -12,7 +12,9 @@
 # dplyr::glimpse(dat_rename)
 #
 # dat_stationary <- is_stationary(df = dat_rename,
-#                                 drop_cols = TRUE)
+#                                 stationary_secs = 30,
+#                                 drop_cols = TRUE,
+#                                 plot = TRUE)
 # dplyr::glimpse(dat_stationary)
 #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
