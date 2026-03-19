@@ -84,7 +84,8 @@ is_stationary <- function(df,
 
   if (!is.numeric(df[[depth_name]]) ||
       !inherits(df[[datetime_name]], "POSIXt")) {
-    stop('Required columns are incorrectly formatted.\nCheck that "depth_col" is numeric, and "datetime_col" is a POSIXt.')
+    stop('Required columns are incorrectly formatted.\n
+         Check that "depth_col" is numeric, and "datetime_col" is a POSIXt.')
   }
 
   # Check on sampling interval

@@ -1,0 +1,25 @@
+---
+title: "TROLL-workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{TROLL-workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(ImportUtils)
+```
+
+path <- system.file(
+  "extdata",
+  "2025-09-16_LT1.csv",
+  package = "ImportUtils"
+)
