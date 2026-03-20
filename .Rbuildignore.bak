@@ -3,5 +3,3 @@
 ^LICENSE\.md$
 ^doc$
 ^Meta$
-^inst/stashed_code$
-^inst/GIT_HELL\.txt(\.bak)?$
