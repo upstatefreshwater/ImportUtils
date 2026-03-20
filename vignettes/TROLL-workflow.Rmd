@@ -108,7 +108,7 @@ metadata whent `strip_metadata` = TRUE.
 
 The `trollcomm_serials` arguments allows users to use a custom vector of serial numbers associated with 
 Troll-Comm units, if the internal dataset is out of date. 
-```{r,echo=FALSE,include=TRUE}
+```{r,echo=TRUE,include=FALSE}
 TROLL_rename_cols(
   df = dat_read,
   trollcomm_serials = c(1151975, 1153542) # Add additional serial #'s here
@@ -122,7 +122,7 @@ troll_column_dictionary[troll_column_dictionary$meta,]
 
 dat_meta <- TROLL_rename_cols(
   df = dat_read,
-  strip_metadata = FALSE
+  strip_metadata = FALSE # Retain metadata columns
 )
 names(dat_meta)
 ```
@@ -138,10 +138,10 @@ dat_echo <- TROLL_rename_cols(
 ```
 ## Step 3: Detect Stationary Periods in Sonde Depth Data
 Once naming schema are standardized, the next step is to detect periods when the sonde was stationary in the water column. 
-The `is_stationary` functions calculated a right-justified (backwards looking) rolling range across a window, and assigns
+The `is_stationary` function calculates a right-justified (backwards looking) rolling range across a window, and assigns
 `is_stationary_status` based on the amount of time the sonde remains within a `depth_range_threshold`. 
 
-Once stationary periods are detected, `is_stationary` appends `stationary_dapth`as the mean of the stationary observations. 
+Once stationary periods are detected, `is_stationary` appends `stationary_dapth` as the mean of the stationary observation depths. 
 
 ```{r, echo=TRUE, include=TRUE}
 dat_stationary <- is_stationary(
@@ -155,6 +155,7 @@ dat_stationary <- is_stationary(
   drop_cols = TRUE,
   plot = FALSE
 )
+
 dplyr::glimpse(dat_stationary)
 ```
 
@@ -163,31 +164,36 @@ the DateTime column. What it's telling you is that there are inconsistent tempor
 glitching. This is only an issue if the "Dominant interval" is not detected as what it should be (2 seconds in this example is correct).
 
 There are 4 critical inputs for tuning the function:
+
     1) `depth_range_threshold`: the allowable rolling range that triggers the right-most observation
     of the rolling window to be flagged as stationary.
     2) `stationary_secs`: the minimum time required for a stationary block to be flagged with `is_stationary_status` == 999.
     3) `rolling_range_secs`: sets the rolling range window size. 
     4) `start_trim_secs`: amount of time to force non-stationary flagging at start of stationary blocks. Defaults to 1 observation if set to 0. 
 
-`is_stationary_status` is critical for tuning. the `999` flag indicates that the stationary block was longer than `stationary_secs`,
-but periods shorter than `stationary_secs` are flagged with their duration in seconds. 
+`is_stationary_status` is critical for tuning. 
+    - The `999` flag indicates that the stationary block was longer than `stationary_secs`.
+    - Periods shorter than `stationary_secs` are flagged with their duration in seconds. 
 
 To visualize this, toggle on optional plotting:
+
 ```{r,echo=TRUE,include=TRUE, fig.align='center', fig.width=8, fig.height=6}
 dat_stationary <- is_stationary(
   df = dat_rename,
   depth_range_threshold = 0.05,
-  stationary_secs = 45,
+  stationary_secs = 45,    # Relatively long required stationary period
   rolling_range_secs = 10,
-  start_trim_secs = 15,
+  start_trim_secs = 15,    # Relatively long trimming period
   plot = TRUE # Toggle optional plotting
 )
 ```
-Note here that there are a number of stationary periods labelled with values < 999.
+*Note* here that there are a number of stationary periods labelled with values < 999, *equal to the number of seconds in the stationary period*
+.
 
 Also note the dashed lines. These equate to the extracted `stationary_depths` used downstream for stability determinations.
 
 Depending on the depths targeted, we can adjust critical parameters to mark additional depths as stationary:
+
 ```{r, echo=TRUE,include=TRUE,fig.align='center', fig.width=8, fig.height=6}
 dat_stationary <- is_stationary(
   df = dat_rename,
@@ -198,6 +204,7 @@ dat_stationary <- is_stationary(
   plot = TRUE # Toggle optional plotting
 )
 ```
+
 Now we have flagged stationary depth from 0 - 8 meters at 1.0 m intervals. 
 
 *Note* that the function extracts actual depth as the mean of stationary depths. 
@@ -214,6 +221,7 @@ summary statistic.
 *Note* This function requires that `is_stationary_status` has been appended to the data by `is_stationary`. 
 
 For an individual parameter: 
+
 ```{r, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=4}
 dat_stable <- TROLL_sensor_stable(
   df = dat_stationary,
@@ -231,6 +239,7 @@ dat_stable <- TROLL_sensor_stable(
     dplyr::select(DateTime, stationary_depth,is_stationary_status,pH_units_stable)
 
 ```
+
 The optional plot aids in understanding what the function is doing. First, across the entire stationary block
 data range and slope are calculated. Then, observations are dropped iteratively one at a time until *both*
 `slope_thresh` and `range_thresh` are met. The remaining observations in the stationary block are all marked 
@@ -239,16 +248,18 @@ as `<value_col>_stable` == TRUE.
 *Note* the use of time on the x-axis. 
 Also - two solid lines indicate the `range_thresh` input by user. This is a guide for visualization only. 
 
-Critical inputs are: 
-  1) `slope_thresh`: the slope threshold that must be met for stability. 
-  2) `range_thresh`: the data range threshold that must be met for stability. 
-  3) `stationary_thresh`: May be adjusted to allow shorter stationary periods be included in stability calculations. 
-  4) `min_secs`: Minimum duration of data to be retained regardles if `slope_thresh` and `range_thresh` are met. 
+Critical inputs are::
+
+    1) `slope_thresh`: the slope threshold that must be met for stability. 
+    2) `range_thresh`: the data range threshold that must be met for stability. 
+    3) `stationary_thresh`: May be adjusted to allow shorter stationary periods be included in stability calculations. 
+    4) `min_secs`: Minimum duration of data to be retained regardless if `slope_thresh` and `range_thresh` are met. 
 
 ## Step 5: Summarize Stable Data
 
 With data flagged as stable in hand, the `TROLL_stable_summary` function compiles the output into a single value (default = median)
 for each stationary depth:
+
 ```{r,echo=TRUE,include=TRUE}
 dat_summary <- TROLL_stable_summary(
   df = dat_stable,
@@ -288,6 +299,7 @@ dat_final <- TROLL_profile_compiler(
   plot = c(Final = FALSE, Stationary = FALSE)
 )
 ```
+
 If `summarize_data` is `FALSE`, output will just return the data with a "_stable" flag column for each parameter. 
 If `TRUE` a list is returned with both flagged and summary data:
 
