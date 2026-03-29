@@ -39,10 +39,22 @@ validate_args <- function(
       stop("`stbl_range_thresholds` must have non-empty names.")
     if (any(is.na(stbl_range_thresholds))) stop("`stbl_range_thresholds` cannot contain NA.")
 
+    ###########################
     unknown_params <- setdiff(names(stbl_range_thresholds), stability_ranges$param)
-    if (length(unknown_params) > 0)
-      warning("Ignoring unknown params in `stbl_range_thresholds`: ", paste(unknown_params, collapse = ", "))
+
+    if (length(unknown_params) > 0) {
+      stop(
+        paste0(
+          "\nUnknown parameter(s) in `stbl_range_thresholds`:\n",
+          paste0("  - ", unknown_params, collapse = "\n"),
+          "\n\nThese do not match known parameters in `stability_ranges`.\n",
+          "Check for typos and that the Unknown has values in 'stability_ranges'.\n",
+          "If missing from `stability_ranges' submit an issue on GitHub."
+        )
+      )
+    }
   }
+    #########################
 }
 
 # Argument normalization / updating helper
@@ -179,7 +191,8 @@ TROLL_profile_compiler <- function(path,                                        
                                    summarize_data = TRUE,                        # Optionally compile the final data as median of stationary & stable periods
                                    # check_target_depths = FALSE,                  # Option for user to check target depths against extracted stationary depths
                                    drop_cols = TRUE,                             # Optionally return internmediate column from is_stationary and TROLL_sensor_stable
-                                   plot = c(Final = FALSE,Stationary = FALSE)    # Toggle optional plotting
+                                   plot = c(Final = FALSE,Stationary = FALSE),    # Toggle optional plotting
+                                   debug = FALSE
 ){
 
 
@@ -252,6 +265,33 @@ TROLL_profile_compiler <- function(path,                                        
     stop('\nNo sensor data columns identified. Column names must be standardized using the "TROLL_rename_cols" function.\n')
   }
 
+  ####################3
+  # Check for missing range thresholds for identified params
+  missing_params <- setdiff(params, ranges$param)
+
+  if (length(missing_params) > 0) {
+    stop(
+      paste0(
+        "\nMissing range thresholds for the following parameters:\n",
+        paste0("  - ", missing_params, collapse = "\n"),
+        "\n\nAdd them to `stbl_range_thresholds` or your default `stability_ranges`."
+      )
+    )
+  }
+
+  # Optional but smart: enforce uniqueness
+  dup_params <- ranges$param[duplicated(ranges$param)]
+
+  if (length(dup_params) > 0) {
+    stop(
+      paste0(
+        "\nDuplicate parameter entries found in range thresholds:\n",
+        paste0("  - ", unique(dup_params), collapse = "\n")
+      )
+    )
+  }
+  ################################3
+
   # 4. --- Detect when sonde is stationary --- ----
   dat_stationary <- is_stationary(df = dat_rename,
                                   depth_col = !!depth_col,
@@ -278,6 +318,7 @@ TROLL_profile_compiler <- function(path,                                        
 
   # Iterate over the unique parameters and check stability
   for (i in seq_along(params)) {
+    if(debug){print(params[i])}
     # Extract each parameter
     param_i <- rlang::sym(params[i])
 
@@ -293,6 +334,7 @@ TROLL_profile_compiler <- function(path,                                        
       stationary_thresh = stbl_stationary_secs
     ) |>
       dplyr::pull(flag_col)
+
   }
 
   # locate each flag column next to the sensor data column its associated with
