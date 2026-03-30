@@ -17,7 +17,8 @@ TROLL_profile_compiler(
   stbl_stationary_secs = 998,
   summarize_data = TRUE,
   drop_cols = TRUE,
-  plot = c(Final = FALSE, Stationary = FALSE)
+  plot = c(Final = FALSE, Stationary = FALSE),
+  debug = FALSE
 )
 }
 \arguments{
@@ -50,7 +51,9 @@ and `$Summary_Data` (medians) as a list.}
 
 \item{drop_cols}{Logical. If \code{TRUE}, removes intermediate processing columns.}
 
-\item{plot}{Logical or named logical vector. Controls optional plotting from
+\item{plot}{Logical or named logical vector. Controls optional plotting from}
+
+\item{debug}{Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.
 \code{is_stationary} and \code{TROLL_stable_summary}.
 Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.}
 }
