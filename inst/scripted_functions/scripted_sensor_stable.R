@@ -1,7 +1,6 @@
 plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
-                           stationary_thresh,
                            range_thresh){
 
   # value_col <- rlang::ensym(value_col)
@@ -11,14 +10,14 @@ plot_stability <- function(df,
 
   rangelines <- stats::median(df[[rlang::as_name(value_col_sym)]],na.rm = TRUE)
   p1 <-
-  ggplot2::ggplot(df, ggplot2::aes(DateTime, !!value_col_sym)) +
+    ggplot2::ggplot(df, ggplot2::aes(DateTime, !!value_col_sym)) +
 
     # all data as background
     ggplot2::geom_point(ggplot2::aes(color = "Sonde Moving"), size = 1) +
 
     # stationary periods
     ggplot2::geom_point(
-      data = dplyr::filter(df, is_stationary_status > stationary_thresh),
+      data = dplyr::filter(df, is_stationary_status == 999),
       ggplot2::aes(color = "Stable Stationary"),
       size = 1.5,
       pch = 19
@@ -27,7 +26,7 @@ plot_stability <- function(df,
     # unstable pH during stationary periods
     ggplot2::geom_point(
       data = dplyr::filter(df,
-                           is_stationary_status > stationary_thresh,
+                           is_stationary_status == 999,
                            !!value_flag_sym %in% FALSE),
       ggplot2::aes(color = "Unstable Stationary"),
       size = 1.5,
@@ -52,113 +51,36 @@ plot_stability <- function(df,
   print(p1)
 }
 
+# Read data ----
+dat = TROLL_read_data('inst/extdata/2025-10-07_QL1.csv')
 
-#' Identify Stable Sensor Values Within Stationary Profiling Blocks
-#'
-#' Evaluates whether sensor measurements collected during stationary profiling
-#' periods are stable based on slope and range thresholds. Stability is assessed
-#' within each stationary block identified by \code{is_stationary()}, and the
-#' function flags observations that meet both slope and range criteria.
-#'
-#' @details
-#'
-#' For each stationary block, the function iteratively calculates slope
-#' (units per minute) and value range, starting with the enitre stationary block,
-#' and then dropping one observation at a time, until `slope_thresh` and `range_thresh`
-#' are both met. If both metrics fall within the specified thresholds,
-#' the observation and all subsequent rows in that block are flagged as stable.
-#'
-#' A minimum duration of data can be enforced using \code{min_secs}, which is
-#' converted internally to a minimum number of observations based on the sampling
-#' interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
-#' will be flagged as `<data_column_name>_stable` for only the `min_secs` before
-#' the sonde is in motion again.
-#'
-#' This function requires that stationary blocks have already been identified
-#' using \code{\link{is_stationary}}.
-#'
-#' @param df A data frame containing sensor data and stationary block metadata.
-#'
-#' @param value_col Unquoted name of the sensor column to evaluate for stability
-#'   (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).
-#'
-#' @param min_secs Minimum duration (seconds) of observations required to compute
-#'   stability statistics. This value is converted internally to the minimum
-#'   number of observations required in a stationary block. Default is \code{5}.
-#'
-#' @param slope_thresh Maximum allowable absolute slope (units per minute) for
-#'   stable measurements. Default is \code{0.05}.
-#'
-#' @param range_thresh Maximum allowable range (max - min) of values within the
-#'   evaluation window for stability. Default is \code{0.02}.
-#'
-#' @param stationary_thresh Minimum value of \code{is_stationary_status} (seconds)
-#'   used to define stationary periods to evaluate. Default is \code{998} (only accepthing
-#'   stationary periods > `stationary_secs` in \code{is_stationary()}.
-#'
-#' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
-#'   columns used during slope and range calculations are removed from the
-#'   returned data frame.
-#'
-#' @param verbose Logical. If \code{TRUE}, prints the depths where stationary
-#'   blocks were identified.
-#'
-#' @param plot Logical. If \code{TRUE}, produces a diagnostic stability plot
-#'   using \code{plot_stability()}.
-#'
-#' @details
-#' The function requires the following columns in \code{df}:
-#'
-#' \itemize{
-#'   \item \code{DateTime}
-#'   \item \code{depth_m}
-#'   \item \code{stationary_depth}
-#'   \item \code{stationary_block_id}
-#'   \item \code{is_stationary_status}
-#'   \item the column specified by \code{value_col}
-#' }
-#'
-#' Observations containing \code{NA} in \code{value_col} are excluded from
-#' stability calculations.
-#'
-#' A new logical column is added to the output named
-#' \code{<value_col>_stable}, indicating whether each observation meets
-#' the stability criteria.
-#'
-#' @return
-#' A data frame with the original input data plus a logical stability flag
-#' column named \code{<value_col>_stable}. If \code{drop_cols = FALSE},
-#' additional diagnostic columns describing slope, range, and window
-#' metadata are included.
-#'
-#' @examples
-#' \dontrun{
-#' dat <- is_stationary(sensor_data)
-#'
-#' dat <- TROLL_sensor_stable(
-#'   df = dat,
-#'   value_col = pH_units,
-#'   min_secs = 5,
-#'   slope_thresh = 0.05,
-#'   range_thresh = 0.02
-#' )
-#' }
-#'
-#' @seealso
-#' \code{\link{is_stationary}}
-#'
-#' @export
-TROLL_sensor_stable <- function(df,
-                                value_col = pH_units,
-                                min_secs = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
-                                slope_thresh = 0.05,     # units/minute
-                                range_thresh = 0.02,
-                                stationary_thresh = 998,
+dat_rename <- TROLL_rename_cols(df = dat,
+                                strip_metadata = TRUE,
+                                verbose = FALSE)
+
+dat_stationary <- is_stationary(df = dat_rename,
                                 drop_cols = TRUE,
-                                verbose = FALSE,
-                                plot = FALSE){
+                                stationary_secs = 20,
+                                rolling_range_secs = 10,
+                                depth_range_threshold = 0.1,
+                                start_trim_secs = 4,
+                                plot = TRUE)
+
+# Run prior functions
+df = dat_stationary
+value_col <- "pH_units"                      # quoted here not in function call
+min_secs = 5                 # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
+slope_thresh = 0.05      # units/minute
+range_thresh = 0.02
+stationary_thresh = 10
+drop_cols = TRUE
+verbose = FALSE
+plot = FALSE
+
+# Execute function code ----
+
   # 0. --- Tidy Eval --- ----
-  value_col <- rlang::ensym(value_col)
+  value_col <- rlang::sym(value_col)  # sym not ensym here use ensym inside function
   value_name <- rlang::as_name(value_col)
   value_flag_col <- paste0(value_name,"_stable")
   # 1. --- Input/Validation checks --- ----
@@ -225,8 +147,8 @@ TROLL_sensor_stable <- function(df,
   # Strict stop for now, could update to use full block instead with warning later if desired (already coded, commented out)
   if(any(blocksizes < min_obs)){
     stop(paste0('\nToo few observations exist in at least one stationary block to accomodate "min_secs" requirement.\n',
-         'Reduce "min_secs" to be below the shortest stationary block: \n',
-         min(blocksizes,na.rm = TRUE)*samp_int))
+                'Reduce "min_secs" to be below the shortest stationary block: \n',
+                min(blocksizes,na.rm = TRUE)*samp_int))
   }
 
   # 3. --- Filter data into stationary blocks --- ----
@@ -344,14 +266,7 @@ TROLL_sensor_stable <- function(df,
       if(slope_good) {
         group_out$slope_ok[win_start] <- TRUE
       }
-#####################
-      # tryCatch(
-      #   range_good <- win_range <= range_thresh,
-      #
-      # )
 
-
-##############3
       range_good <- win_range <= range_thresh
       if(range_good){
         group_out$range_ok[win_start] <- TRUE
@@ -392,12 +307,11 @@ TROLL_sensor_stable <- function(df,
     plot_stability(df = final,
                    value_col_sym = value_col,
                    value_flag_col = value_flag_col,
-                   stationary_thresh = stationary_thresh,
                    range_thresh = range_thresh)
   }
 
   return(final)
-}
+
 
 #
 # xx <-
@@ -412,5 +326,4 @@ TROLL_sensor_stable <- function(df,
 #                       plot = TRUE);xx
 
 # Need to deal with y axis scaling when it blows up
-
 

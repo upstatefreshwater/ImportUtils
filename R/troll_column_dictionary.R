@@ -39,16 +39,16 @@ troll_column_dictionary <- tibble::tribble(
   "^Specific Conductivity",                   "sp_conductivity_uScm",    FALSE,     FALSE,       TRUE,    TRUE,
   "^Temperature \\(\u00B0C\\)$",              "temperature_C",           FALSE,     FALSE,       TRUE,    TRUE,
   "^pH \\(pH\\)$",                            "pH_units",                FALSE,     FALSE,       TRUE,    TRUE,
-  "^pH mV",                                   "pH_mV",                   FALSE,     FALSE,       FALSE,   FALSE,
   "^RDO Concentration",                       "DO_mgL",                  FALSE,     FALSE,       TRUE,    TRUE,
   "^RDO Saturation",                          "DO_per",                  FALSE,     FALSE,       TRUE,   FALSE,
   "^Turbidity",                               "turbidity_NTU",           FALSE,     FALSE,       TRUE,    TRUE,
   "^Chlorophyll-a Fluorescence",              "chlorophyll_RFU",         FALSE,     FALSE,       TRUE,    TRUE,
   "^BGA-PC Fluorescence",                     "bga_fluorescence_RFU",    FALSE,     FALSE,       TRUE,    TRUE,
   "^ORP",                                     "ORP_mv",                  FALSE,     FALSE,       TRUE,    TRUE,
-  "^Actual Conductivity \\(\u00B5S/cm\\)$",   "actual_conductivity_uScm",FALSE,     FALSE,       TRUE,    TRUE,
 
   # Additional Parameters
+  "^pH mV",                                   "pH_mV",                   FALSE,     FALSE,       FALSE,   FALSE,
+  "^Actual Conductivity \\(\u00B5S/cm\\)$",   "actual_conductivity_uScm",FALSE,     FALSE,       FALSE,   FALSE,
   "^Salinity \\(PSU\\)$",                     "salinity_psu",            FALSE,     FALSE,       FALSE,   FALSE,
   "^Resistivity \\(\u03A9\u22C5cm\\)$",       "resistivity_ohmcm",       FALSE,     FALSE,       FALSE,   FALSE,
   "^Density \\(g/cm\u00B3\\)$",               "density_gcm",             FALSE,     FALSE,       FALSE,   FALSE,
@@ -57,15 +57,15 @@ troll_column_dictionary <- tibble::tribble(
   "^Depth to Water",                          "depth_to_water_m",        FALSE,     FALSE,       FALSE,   FALSE,
 
   # Instrument metadata
-  "^External Voltage",                        "external_voltage_V",      FALSE,     TRUE,       FALSE,   FALSE,
-  "^Battery Capacity",                        "battery_capacity_per",    FALSE,     TRUE,       FALSE,   FALSE,
-  "^Pressure \\(psi\\)",                      "water_pressure_psi",      FALSE,     TRUE,       FALSE,   FALSE,
-  "^Barometric Pressure \\(mm Hg\\)",         "barometric_pressure_mmHg",FALSE,     TRUE,       FALSE,   FALSE,
-  "^Barometric Pressure \\(mbar\\)",          "barometric_pressure_mbar",FALSE,     TRUE,       FALSE,   FALSE,
-  "^Latitude",                                "latitude_deg",            FALSE,     TRUE,       FALSE,   FALSE,
-  "^Longitude",                               "longitude_deg",           FALSE,     TRUE,       FALSE,   FALSE,
-  "^Marked$",                                 "marked_flag",             FALSE,     TRUE,       FALSE,   FALSE,
-  "^Trollcom_temperature_C$",                 "Trollcom_temperature_C",  FALSE,     TRUE,       FALSE,   FALSE
+  "^External Voltage",                        "external_voltage_V",      FALSE,     TRUE,        FALSE,   FALSE,
+  "^Battery Capacity",                        "battery_capacity_per",    FALSE,     TRUE,        FALSE,   FALSE,
+  "^Pressure \\(psi\\)",                      "water_pressure_psi",      FALSE,     TRUE,        FALSE,   FALSE,
+  "^Barometric Pressure \\(mm Hg\\)",         "barometric_pressure_mmHg",FALSE,     TRUE,        FALSE,   FALSE,
+  "^Barometric Pressure \\(mbar\\)",          "barometric_pressure_mbar",FALSE,     TRUE,        FALSE,   FALSE,
+  "^Latitude",                                "latitude_deg",            FALSE,     TRUE,        FALSE,   FALSE,
+  "^Longitude",                               "longitude_deg",           FALSE,     TRUE,        FALSE,   FALSE,
+  "^Marked$",                                 "marked_flag",             FALSE,     TRUE,        FALSE,   FALSE,
+  "^Trollcom_temperature_C$",                 "Trollcom_temperature_C",  FALSE,     TRUE,        FALSE,   FALSE
 )
 
 # usethis::use_data(troll_column_dictionary,overwrite = TRUE)
