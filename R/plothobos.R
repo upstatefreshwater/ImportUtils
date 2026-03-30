@@ -68,13 +68,13 @@ combine_hobos <- function(...) {
 # ============================================
 
 # 1. Process raw logger files
-Ischua_2 <- hoboformat("C:/Users/Annie/OneDrive/Desktop/Hobos/Ischua_2.csv", "Ischua_2")
-Ischua_3 <- hoboformat("C:/Users/Annie/OneDrive/Desktop/Hobos/Ischua_3.csv", "Ischua_3")
+#Ischua_2 <- hoboformat("C:/Users/Annie/OneDrive/Desktop/Hobos/Ischua_2.csv", "Ischua_2")
+#Ischua_3 <- hoboformat("C:/Users/Annie/OneDrive/Desktop/Hobos/Ischua_3.csv", "Ischua_3")
 
 # 2. Combine datasets
-combined <- combine_hobos(Ischua_2, Ischua_3)
+#combined <- combine_hobos(Ischua_2, Ischua_3)
 
 # 3. Plot
-plot_hobos(combined)
+#plot_hobos(combined)
 
 
