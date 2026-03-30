@@ -119,6 +119,7 @@ normalize_args <- function(plot,
 #'   and `$Summary_Data` (medians) as a list.
 #' @param drop_cols Logical. If \code{TRUE}, removes intermediate processing columns.
 #' @param plot Logical or named logical vector. Controls optional plotting from
+#' @param debug Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.
 #' \code{is_stationary} and \code{TROLL_stable_summary}.
 #' Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.
 #'
