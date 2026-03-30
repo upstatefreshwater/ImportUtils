@@ -178,8 +178,8 @@ normalize_args <- function(plot,
 #'
 #' @export
 TROLL_profile_compiler <- function(path,                                         # Path to csv file
-                                   depth_col,                                    # Unquoted depth data column name
-                                   datetime_col,                                 # Unquoted datetime data column name
+                                   depth_col = depth_m,                                    # Unquoted depth data column name
+                                   datetime_col = DateTime,                                 # Unquoted datetime data column name
                                    # is_stationary
                                    stn_depthrange = 0.1,                         # Rolling range setting input to is_stationary()
                                    stn_secs = 45,                                # Time required after starttrim for is_stationary_status to be set to 999 (fully stationary)
