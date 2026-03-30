@@ -10,7 +10,6 @@ troll_serial_numbers <- c("1265014", "1265071", "1265303", "1265329", "1265335",
 usethis::use_data(
   trollCOMM_serials,
   troll_serial_numbers,
-  troll_column_dictionary,
   internal = TRUE,
   overwrite = TRUE
 )
