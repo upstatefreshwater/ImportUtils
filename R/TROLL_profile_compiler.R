@@ -40,6 +40,7 @@ validate_args <- function(
     if (any(is.na(stbl_range_thresholds))) stop("`stbl_range_thresholds` cannot contain NA.")
 
     ###########################
+    # Check for unknown params in stability_ranges
     unknown_params <- setdiff(names(stbl_range_thresholds), stability_ranges$param)
 
     if (length(unknown_params) > 0) {
