@@ -1,6 +1,7 @@
 plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
+                           stationary_thresh,
                            range_thresh){
 
   # value_col <- rlang::ensym(value_col)
@@ -17,7 +18,7 @@ plot_stability <- function(df,
 
     # stationary periods
     ggplot2::geom_point(
-      data = dplyr::filter(df, is_stationary_status == 999),
+      data = dplyr::filter(df, is_stationary_status > stationary_thresh),
       ggplot2::aes(color = "Stable Stationary"),
       size = 1.5,
       pch = 19
@@ -26,7 +27,7 @@ plot_stability <- function(df,
     # unstable pH during stationary periods
     ggplot2::geom_point(
       data = dplyr::filter(df,
-                           is_stationary_status == 999,
+                           is_stationary_status > stationary_thresh,
                            !!value_flag_sym %in% FALSE),
       ggplot2::aes(color = "Unstable Stationary"),
       size = 1.5,
@@ -391,6 +392,7 @@ TROLL_sensor_stable <- function(df,
     plot_stability(df = final,
                    value_col_sym = value_col,
                    value_flag_col = value_flag_col,
+                   stationary_thresh = stationary_thresh,
                    range_thresh = range_thresh)
   }
 

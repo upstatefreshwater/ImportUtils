@@ -265,8 +265,7 @@ TROLL_profile_compiler <- function(path,                                        
     stop('\nNo sensor data columns identified. Column names must be standardized using the "TROLL_rename_cols" function.\n')
   }
 
-  ####################3
-  # Check for missing range thresholds for identified params
+  # Check for missing range thresholds for identified params (This should only happen if internal datasets get altered)
   missing_params <- setdiff(params, ranges$param)
 
   if (length(missing_params) > 0) {
@@ -279,7 +278,7 @@ TROLL_profile_compiler <- function(path,                                        
     )
   }
 
-  # Optional but smart: enforce uniqueness
+  # enforce uniqueness
   dup_params <- ranges$param[duplicated(ranges$param)]
 
   if (length(dup_params) > 0) {
@@ -290,7 +289,6 @@ TROLL_profile_compiler <- function(path,                                        
       )
     )
   }
-  ################################3
 
   # 4. --- Detect when sonde is stationary --- ----
   dat_stationary <- is_stationary(df = dat_rename,
