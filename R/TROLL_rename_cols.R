@@ -240,7 +240,7 @@ strip_meta <- function(df,
 #' @param verbose Logical; if \code{TRUE}, prints the final
 #'   standardized column names to the console.
 #'
-#'#'@details
+#' @details
 #' The function performs the following steps:
 #' \enumerate{
 #'   \item Detects and renames TROLL-COM temperature columns.
