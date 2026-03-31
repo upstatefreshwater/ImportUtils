@@ -229,7 +229,6 @@ dat_stable <- TROLL_sensor_stable(
   min_secs = 5,
   slope_thresh = 0.05,
   range_thresh = 0.02,
-  stationary_thresh = 998,
   drop_cols = TRUE,
   verbose = FALSE,
   plot = TRUE           # Optional plotting toggled ON
@@ -245,15 +244,17 @@ data range and slope are calculated. Then, observations are dropped iteratively 
 `slope_thresh` and `range_thresh` are met. The remaining observations in the stationary block are all marked 
 as `<value_col>_stable` == TRUE. 
 
-*Note* the use of time on the x-axis. 
+**Note** the use of time on the x-axis. 
 Also - two solid lines indicate the `range_thresh` input by user. This is a guide for visualization only. 
 
 Critical inputs are::
 
     1) `slope_thresh`: the slope threshold that must be met for stability. 
     2) `range_thresh`: the data range threshold that must be met for stability. 
-    3) `stationary_thresh`: May be adjusted to allow shorter stationary periods be included in stability calculations. 
-    4) `min_secs`: Minimum duration of data to be retained regardless if `slope_thresh` and `range_thresh` are met. 
+    3) `min_secs`: Minimum duration of data to be retained regardless if `slope_thresh` and `range_thresh` are met. 
+
+**Note** `stationary_status` must be `999` from `is_stationary()` for stability to be examined. If depths are missing
+consider tuning inputs to `is_stationary` to extract more fully stationary blocks. 
 
 ## Step 5: Summarize Stable Data
 
@@ -293,7 +294,6 @@ dat_final <- TROLL_profile_compiler(
   stn_startrim_secs = 15,                          # Note use of value from tuning above
   stbl_min_secs = 5,
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
-  stbl_stationary_secs = 998,
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
   drop_cols = TRUE,
   plot = c(Final = FALSE, Stationary = FALSE)
@@ -324,7 +324,6 @@ dat_final <- TROLL_profile_compiler(
   stn_startrim_secs = 15,                          # Note use of value from tuning above
   stbl_min_secs = 5,
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
-  stbl_stationary_secs = 998,
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
   drop_cols = TRUE,
   plot = c(Final = TRUE, Stationary = FALSE)

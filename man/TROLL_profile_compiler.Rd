@@ -6,15 +6,14 @@
 \usage{
 TROLL_profile_compiler(
   path,
-  depth_col,
-  datetime_col,
+  depth_col = depth_m,
+  datetime_col = DateTime,
   stn_depthrange = 0.1,
   stn_secs = 45,
   stn_rollwindow_secs = 10,
   stn_startrim_secs = 4,
   stbl_min_secs = 5,
   stbl_range_thresholds = NULL,
-  stbl_stationary_secs = 998,
   summarize_data = TRUE,
   drop_cols = TRUE,
   plot = c(Final = FALSE, Stationary = FALSE),
@@ -42,9 +41,6 @@ statistic if stability is not reached within a stationary period.}
 
 \item{stbl_range_thresholds}{Optional named numeric vector. Custom stability
 thresholds per parameter. See \code{\link{stability_ranges}} for defaults and naming.}
-
-\item{stbl_stationary_secs}{Numeric. Minimum \code{is_stationary_status} (seconds)
-to consider an observation for stability evaluation.}
 
 \item{summarize_data}{Logical. If \code{TRUE}, returns both `$Flagged_Data`
 and `$Summary_Data` (medians) as a list.}

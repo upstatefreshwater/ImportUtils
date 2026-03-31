@@ -14,8 +14,8 @@
 # dplyr::glimpse(dat_rename)
 #
 # dat_stationary <- is_stationary(df = dat_rename,
-#                                 stationary_secs = 45,
-#                                 start_trim_secs = 10,
+#                                 stationary_secs = 20,
+#                                 start_trim_secs = 5,
 #                                 depth_range_threshold = 0.05,
 #                                 drop_cols = TRUE,
 #                                 plot = TRUE)
@@ -32,8 +32,11 @@
 # # xx <-
 # TROLL_profile_compiler(path = path,
 #                        depth_col = depth_m,
+#                        stn_secs = 20,
+#                        stn_startrim_secs = 5,
 #                        drop_cols = TRUE,
-#                        datetime_col = DateTime
+#                        datetime_col = DateTime,
+#                        plot = TRUE
 #                        )
 #
 # # names(xx$Flagged_Data)
