@@ -27,7 +27,6 @@ Imports:
 	RColorBrewer,
     readr,
     stringr,
-	tidyr,
     zoo	
 Suggests: 
     knitr,

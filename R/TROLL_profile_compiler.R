@@ -1,7 +1,7 @@
 # Argument validation helper
 validate_args <- function(
     stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
-    stbl_min_secs, stbl_stationary_secs,
+    stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges # pass your defaults table
 ) {
@@ -12,14 +12,11 @@ validate_args <- function(
   check_numeric(stn_rollwindow_secs, "stn_rollwindow_secs")
   check_numeric(stn_startrim_secs, "stn_startrim_secs", allow_zero = TRUE)
   check_numeric(stbl_min_secs, "stbl_min_secs")
-  check_numeric(stbl_stationary_secs, "stbl_stationary_secs")
 
   if (stn_startrim_secs >= stn_secs) stop("`stn_startrim_secs` must be less than `stn_secs`.")
   if (stn_rollwindow_secs > stn_secs) stop("`stn_rollwindow_secs` must be <= `stn_secs`.")
 
-  if (stbl_stationary_secs < stn_secs)
-    warning("`stbl_stationary_secs` < `stn_secs`; may exclude valid stationary periods.")
-  if (stbl_min_secs > stn_secs)
+ if (stbl_min_secs > stn_secs)
     warning("`stbl_min_secs` > `stn_secs`; summaries may not be computed.")
 
   # --- Logical checks ---
@@ -113,8 +110,6 @@ normalize_args <- function(plot,
 #'   statistic if stability is not reached within a stationary period.
 #' @param stbl_range_thresholds Optional named numeric vector. Custom stability
 #'   thresholds per parameter. See \code{\link{stability_ranges}} for defaults and naming.
-#' @param stbl_stationary_secs Numeric. Minimum \code{is_stationary_status} (seconds)
-#'   to consider an observation for stability evaluation.
 #' @param summarize_data Logical. If \code{TRUE}, returns both `$Flagged_Data`
 #'   and `$Summary_Data` (medians) as a list.
 #' @param drop_cols Logical. If \code{TRUE}, removes intermediate processing columns.
@@ -188,7 +183,6 @@ TROLL_profile_compiler <- function(path,                                        
                                    # sensor_stable
                                    stbl_min_secs = 5,                            # Minimum time to be used to calculate summary stat if stability is not detected within a stationary block
                                    stbl_range_thresholds = NULL,                 # Optionally provide custom range thresholds for individual params to detect sensor stability
-                                   stbl_stationary_secs = 998,                    # Minimum value of "is_stationary_status" in seconds to be considered a stationary period
                                    # Optional controls
                                    summarize_data = TRUE,                        # Optionally compile the final data as median of stationary & stable periods
                                    # check_target_depths = FALSE,                  # Option for user to check target depths against extracted stationary depths
@@ -208,7 +202,7 @@ TROLL_profile_compiler <- function(path,                                        
   # Validation helper
   validate_args(
     stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
-    stbl_min_secs, stbl_stationary_secs,
+    stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges
   )
@@ -330,8 +324,7 @@ TROLL_profile_compiler <- function(path,                                        
       df = dat_stationary,
       value_col = !!param_i,
       min_secs = stbl_min_secs,
-      range_thresh = ranges$range_thresh[ranges$param == params[i]],                # Set the rolling range threshold for individual params in the data
-      stationary_thresh = stbl_stationary_secs
+      range_thresh = ranges$range_thresh[ranges$param == params[i]]               # Set the rolling range threshold for individual params in the data
     ) |>
       dplyr::pull(flag_col)
 
@@ -384,7 +377,7 @@ TROLL_profile_compiler <- function(path,                                        
                               ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
           ggplot2::geom_path(data = out,
                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status <= stbl_stationary_secs),
+          ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status < 999),
                               ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
           ggplot2::geom_point(data = stable_summary,
                               ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),

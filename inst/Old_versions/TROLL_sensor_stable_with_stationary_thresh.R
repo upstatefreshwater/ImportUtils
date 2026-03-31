@@ -1,6 +1,7 @@
 plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
+                           stationary_thresh,
                            range_thresh){
 
   # value_col <- rlang::ensym(value_col)
@@ -17,7 +18,7 @@ plot_stability <- function(df,
 
     # stationary periods
     ggplot2::geom_point(
-      data = dplyr::filter(df, is_stationary_status == 999),
+      data = dplyr::filter(df, is_stationary_status > stationary_thresh),
       ggplot2::aes(color = "Stable Stationary"),
       size = 1.5,
       pch = 19
@@ -26,7 +27,7 @@ plot_stability <- function(df,
     # unstable pH during stationary periods
     ggplot2::geom_point(
       data = dplyr::filter(df,
-                           is_stationary_status == 999,
+                           is_stationary_status > stationary_thresh,
                            !!value_flag_sym %in% FALSE),
       ggplot2::aes(color = "Unstable Stationary"),
       size = 1.5,
@@ -91,6 +92,10 @@ plot_stability <- function(df,
 #' @param range_thresh Maximum allowable range (max - min) of values within the
 #'   evaluation window for stability. Default is \code{0.02}.
 #'
+#' @param stationary_thresh Minimum value of \code{is_stationary_status} (seconds)
+#'   used to define stationary periods to evaluate. Default is \code{998} (only accepthing
+#'   stationary periods > `stationary_secs` in \code{is_stationary()}.
+#'
 #' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
 #'   columns used during slope and range calculations are removed from the
 #'   returned data frame.
@@ -148,6 +153,7 @@ TROLL_sensor_stable <- function(df,
                                 min_secs = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
                                 slope_thresh = 0.05,     # units/minute
                                 range_thresh = 0.02,
+                                stationary_thresh = 998,
                                 drop_cols = TRUE,
                                 verbose = FALSE,
                                 plot = FALSE){
@@ -183,14 +189,16 @@ TROLL_sensor_stable <- function(df,
     stop('\nBoth "min_secs" and "slope_thresh" must be positive numeric values.')
   }
 
-  # Check that stationary blocks exist with fully stationary status (999)
-  z_stationary <- unique(df$stationary_depth[df$is_stationary_status == 999])
+  # Check that stationary blocks exist above the stationary_thresh
+  if(!is.numeric(stationary_thresh) || stationary_thresh <= 0){
+    stop('\n "stationary_thresh must be a positive numeric greater than 0')
+  }
+  z_stationary <- unique(df$stationary_depth[df$is_stationary_status > stationary_thresh])
 
   if(length(z_stationary) < 1){
     max_stnthresh <- max(df$is_stationary_status,na.rm = T)
-    stop(paste0('No stationary data blocks (stationary_status 999) found.\n',
-                'Max "is_stationary_status = ', max_stnthresh,' seconds.\n\n',
-                'Try reducing `stationary_secs` in is_stationary() if your deployment had shorter soak times.'))
+    stop(paste0('No stationary data identified using given "stationary_thresh" value.\n',
+                'Max "is_stationary_status = ', max_stnthresh,' seconds.'))
   }
 
   if(verbose){
@@ -207,7 +215,7 @@ TROLL_sensor_stable <- function(df,
   # Check that enough data points in every stationary block to accomodate min_obs
   blocksizes <- df |>
     dplyr::group_by(stationary_block_id) |>
-    dplyr::filter(is_stationary_status == 999) |>
+    dplyr::filter(is_stationary_status > stationary_thresh) |>
     dplyr::mutate(
       block_n = dplyr::n()
     ) |>
@@ -225,7 +233,7 @@ TROLL_sensor_stable <- function(df,
   dat_base <- df |>
     dplyr::ungroup() |>
     dplyr::filter(
-      is_stationary_status == 999,
+      is_stationary_status > stationary_thresh,
       !is.na(.data[[value_name]])  # remove rows with NA in the value_col data
     )
   # 4. --- Group data into blocks, and split groups into a list --- ----
@@ -384,6 +392,7 @@ TROLL_sensor_stable <- function(df,
     plot_stability(df = final,
                    value_col_sym = value_col,
                    value_flag_col = value_flag_col,
+                   stationary_thresh = stationary_thresh,
                    range_thresh = range_thresh)
   }
 
@@ -394,6 +403,7 @@ TROLL_sensor_stable <- function(df,
 # xx <-
 #   TROLL_sensor_stable(df = dat_stationary,
 #                       value_col = sp_conductivity_uScm,
+#                       stationary_thresh = 998,
 #                       min_secs = 5,
 #                       slope_thresh = 0.05,
 #                       range_thresh = 0.1,
