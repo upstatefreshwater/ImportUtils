@@ -14,7 +14,8 @@ plot_stability <- function(df,
 
     # all data as background
     ggplot2::geom_point(ggplot2::aes(color = "Sonde Moving"), size = 1) +
-
+    # Add line to make viewing noisy data easier
+    ggplot2::geom_line(ggplot2::aes(color = "Sonde Moving")) +
     # stationary periods
     ggplot2::geom_point(
       data = dplyr::filter(df, is_stationary_status == 999),
