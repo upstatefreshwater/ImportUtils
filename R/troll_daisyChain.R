@@ -22,7 +22,8 @@
 # dplyr::glimpse(dat_stationary)
 #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
-#                                   value_col = pH_units)
+#                                   value_col = pH_units,
+#                                   plot = TRUE)
 # dplyr::glimpse(dat_stable)
 #
 # dat_summary <- TROLL_stable_summary(df = dat_stable)

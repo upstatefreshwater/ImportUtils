@@ -222,7 +222,10 @@ is_stationary <- function(df,
     ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +
     ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
     ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
-    ggplot2::geom_hline(yintercept = stationary_depths, col = 'black',lty = 2) +
+    ggplot2::geom_hline(ggplot2::aes(yintercept = y, linetype = label),
+                        data = data.frame(y = stationary_depths, label = "Stationary Depth"),
+                        col = 'black') +
+    ggplot2::scale_linetype_manual(name = "", values = c("Stationary Depth" = "dashed")) +
     # ggplot2::theme_minimal()
     cowplot::theme_cowplot()
 
