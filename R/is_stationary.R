@@ -244,7 +244,7 @@ is_stationary <- function(df,
   #  7a.*** Compute stationary depths --- ----
   df_out <- df_out |>
     dplyr::group_by(stationary_block_id) |>
-    dplyr::mutate(stationary_depth = mean(!!depth_col, na.rm = TRUE),
+    dplyr::mutate(stationary_depth = round(mean(!!depth_col, na.rm = TRUE),3),
                   stationary_depth = ifelse(
                     is_stationary_status == 999,
                     stationary_depth,
