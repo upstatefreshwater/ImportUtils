@@ -242,7 +242,7 @@ TROLL_sensor_stable <- function(df,
   out_list <- vector("list", length(dat_grouped))
 
   for (i in seq_along(dat_grouped)) { # seq_along gives list length as 1:length(list)
-    #  **** Extract one stationary group of data within a loop ----
+    # **** Extract one stationary group of data within a loop ----
     stable_group_dat <- dat_grouped[[i]]                    # Extract one stable group of data
 
     n <- nrow(stable_group_dat)                             # length of the stable block (rows)
@@ -269,8 +269,9 @@ TROLL_sensor_stable <- function(df,
     group_out[[value_flag_col]] <- FALSE
 
     # **Reset good_flag per group** (marker to keep final "_stable" flat as TRUE once one row meets range + slope thresholds combined)
-    good_flag <- FALSE
-
+    #########################
+    # good_flag <- FALSE
+#############3333
     # Set min_obs rows slope and range OK flags to keep data if threshold is never met
     if(nrow(group_out) < min_obs){
       msg_depth <- unique(stable_group_dat$stationary_depth)
@@ -298,65 +299,154 @@ TROLL_sensor_stable <- function(df,
 
     n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
 
+    ##############
+    n_windows <- max(1, n - min_obs + 1)
     # **** Loop over grouped data ----
-    for(win_start in seq_len(n_windows)) {                  # Because seq_along(0) = 1, this always works
-      # Create an index to subset group data on from the start of the window to the end of the stable data block
+    #############
+    mad_vals   <- numeric(n_windows)
+    slope_vals <- numeric(n_windows)
+    len_vals   <- numeric(n_windows)
+
+    for(win_start in seq_len(n_windows)) {
+
       idx <- win_start:n
 
-      # Subset data using window index
       x <- x_all[idx]
       y <- y_all[idx]
 
-      # **** --- Calculate stats --- ----
-
-      # Slope
+      # --- Slope ---
       v <- stats::var(x)
+      slope_fit <- if(is.na(v) || v == 0) NA_real_ else stats::cov(x, y) / v
 
-      slope_fit <- if(is.na(v) || v == 0) {
-        NA_real_
-      } else {
-        stats::cov(x, y) / v
-      }
+      # --- MAD ---
+      mad_val <- stats::mad(y, constant = 1)
 
-      if(is.na(slope_fit)){
-        warning(paste0("Single datapoint used for ",unique(stable_group_dat$stationary_depth),", slope could not be calculated"))
-      }
+      # --- Store raw values ---
+      slope_vals[win_start] <- slope_fit
+      mad_vals[win_start]   <- mad_val
+      len_vals[win_start]   <- length(idx)
 
-      # Range
-      win_range <- diff(range(y))
-
-      # Add stats and metadata to output object at the start index for grouped data
-      group_out$slope[win_start] <- slope_fit
-      group_out$range[win_start] <- win_range
-
+      # --- Keep your existing tracking if you want ---
+      group_out$slope[win_start]     <- slope_fit
+      group_out$range[win_start]     <- diff(range(y))
       group_out$n_dropped[win_start] <- win_start - 1
-      group_out$n_used[win_start] <- length(idx)
-
-      # Flag columns that meet slope/range
-      slope_good <- !is.na(slope_fit) && abs(slope_fit) <= slope_thresh
-      if(slope_good) {
-        group_out$slope_ok[win_start] <- TRUE
-      }
-#####################
-      # tryCatch(
-      #   range_good <- win_range <= range_thresh,
-      #
-      # )
-
-
-##############3
-      range_good <- win_range <= range_thresh
-      if(range_good){
-        group_out$range_ok[win_start] <- TRUE
-      }
-
-      # Combined flag if both conditions are met
-      if((slope_good && range_good) || good_flag){
-        group_out[[value_flag_col]][win_start] <- TRUE
-        good_flag <- TRUE
-      }
-
+      group_out$n_used[win_start]    <- length(idx)
     }
+
+    # --- Normalize metrics within block ---
+    mad_max <- max(mad_vals, na.rm = TRUE)
+    mad_scaled <- if(mad_max == 0 || is.na(mad_max)) {
+      rep(0, length(mad_vals))
+    } else {
+      mad_vals / mad_max
+    }
+    slope_abs <- abs(slope_vals)
+    slope_max <- max(slope_abs, na.rm = TRUE)
+    slope_scaled <- if(slope_max == 0 || is.na(slope_max)) {
+      rep(0, length(slope_abs))
+    } else {
+      slope_abs / slope_max
+    }
+
+    # --- Length penalty ---
+    # len_penalty <- 1 / len_vals
+    len_penalty <- (max(len_vals) - len_vals) / max(len_vals)
+
+    # --- Cost function ---
+    beta  <- 1    # weight for slope
+    gamma <- 0.5  # weight for length penalty
+
+    cost <- mad_scaled + beta * slope_scaled + gamma * len_penalty
+
+    best_cost <- min(cost, na.rm = TRUE)
+
+    # Allow near-optimal windows (prevents over-trimming)
+    tol <- 1.1
+
+    candidates <- which(cost <= best_cost * tol)
+
+    # Choose earliest acceptable window
+    min_len <- min_obs * 1.5
+    valid <- which(len_vals >= min_len)
+
+    if(length(valid) > 0){
+      best_cost <- min(cost[valid], na.rm = TRUE)
+      candidates <- valid[cost[valid] <= best_cost * tol]
+      start_idx <- min(candidates)
+    } else {
+      best_cost <- min(cost, na.rm = TRUE)
+      candidates <- which(cost <= best_cost * tol)
+      start_idx <- min(candidates)
+    }
+
+    group_out[[value_flag_col]][start_idx:n] <- TRUE
+    ############################
+#     for(win_start in seq_len(n_windows)) {                  # Because seq_along(0) = 1, this always works
+#       # Create an index to subset group data on from the start of the window to the end of the stable data block
+#       idx <- win_start:n
+#
+#       # Subset data using window index
+#       x <- x_all[idx]
+#       y <- y_all[idx]
+#
+#       # **** --- Calculate stats --- ----
+#
+#       # Slope
+#       v <- stats::var(x)
+#
+#       slope_fit <- if(is.na(v) || v == 0) {
+#         NA_real_
+#       } else {
+#         stats::cov(x, y) / v
+#       }
+#
+#       if(is.na(slope_fit)){
+#         warning(paste0("Single datapoint used for ",unique(stable_group_dat$stationary_depth),", slope could not be calculated"))
+#       }
+#
+#       # Range
+#       win_range <- diff(range(y))
+#
+#       # Standard Deviation
+#       if(value_name %in% c('turbidity_NTU','chlorophyll_RFU','bga_fluorescence_RFU')){
+#         stdev <- sd(y,na.rm = TRUE)
+#         se <- stdev/sqrt(length(idx))
+#
+#         mad_val <- stats::mad(y, constant = 1)
+#       }
+#
+#       # Add stats and metadata to output object at the start index for grouped data
+#       group_out$slope[win_start] <- slope_fit
+#       group_out$range[win_start] <- win_range
+#
+#       group_out$n_dropped[win_start] <- win_start - 1
+#       group_out$n_used[win_start] <- length(idx)
+#
+#       # Flag columns that meet slope/range
+#       slope_good <- !is.na(slope_fit) && abs(slope_fit) <= slope_thresh
+#       if(slope_good) {
+#         group_out$slope_ok[win_start] <- TRUE
+#       }
+# #####################
+#       # tryCatch(
+#       #   range_good <- win_range <= range_thresh,
+#       #
+#       # )
+#
+#
+# ##############3
+#       range_good <- win_range <= range_thresh
+#       if(range_good){
+#         group_out$range_ok[win_start] <- TRUE
+#       }
+#
+#       # Combined flag if both conditions are met
+#       if((slope_good && range_good) || good_flag){
+#         group_out[[value_flag_col]][win_start] <- TRUE
+#         good_flag <- TRUE
+#       }
+#
+#     }
     out_list[[i]] <- group_out
   }
 
@@ -390,17 +480,6 @@ TROLL_sensor_stable <- function(df,
 
   return(final)
 }
-
-#
-# xx <-
-#   TROLL_sensor_stable(df = dat_stationary,
-#                       value_col = sp_conductivity_uScm,
-#                       min_secs = 5,
-#                       slope_thresh = 0.05,
-#                       range_thresh = 0.1,
-#                       drop_cols = TRUE,
-#                       verbose = FALSE,
-#                       plot = TRUE);xx
 
 # Need to deal with y axis scaling when it blows up
 

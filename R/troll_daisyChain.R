@@ -2,7 +2,8 @@
 #   # 'inst/extdata/2025-05-13_LW1.csv'
 # # 'inst/extdata/2025-05-27_LT1.csv'
 # # 'inst/extdata/2025-09-16_LT1.csv'
-# # 'inst/extdata/2025-10-01_LW1.csv'
+# # 2025-10-01_LW1
+#   # 'inst/extdata/2025-10-07_QL1.csv'
 #   'inst/extdata/TROLL_exdata.csv'
 #
 # dat_read <- TROLL_read_data(path)
@@ -22,7 +23,8 @@
 # dplyr::glimpse(dat_stationary)
 #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
-#                                   value_col = pH_units,
+#                                   value_col = bga_fluorescence_RFU,
+#                                   min_secs = 1,
 #                                   plot = TRUE)
 # dplyr::glimpse(dat_stable)
 #
