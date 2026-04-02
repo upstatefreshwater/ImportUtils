@@ -94,12 +94,19 @@ lines(y = xx$stationary_depth * -1,
 library(tidyverse)
 # data.frame(depth = data_stationary$stationary_depth,
 #            turb  = data_stable$turbidity_NTU_stable)
-
+one <- TROLL_read_data('inst/extdata/2025-10-07_QL1.csv')
+two <- TROLL_rename_cols(one)
+data_stationary <- is_stationary(two,
+                                 stationary_secs = 38,
+                                 start_trim_secs = 6,
+                                 depth_range_threshold = 0.1,
+                                 plot = T) %>%
+  mutate(stationary_depth = round(stationary_depth,3))
 min_n <- 5
 
 # 1. Prep the data
 junk <- data_stationary %>%
-  filter(stationary_depth == 0.993  ) %>%
+  filter(stationary_depth == 2.132 ) %>%
   mutate(dttm_norm = as.numeric(DateTime - min(DateTime)) / 60)
 
 # 2. Window Size
@@ -124,6 +131,9 @@ for (i in 1:n_windows) {
   mad <- stats::mad(loop_dat$turbidity_NTU)
   SE <- stats::sd(loop_dat$turbidity_NTU)/sqrt(nrow(loop_dat))
 
+  SD <- sd(loop_dat$turbidity_NTU)
+
+  results$SD[i] <- SD
   results$mad[i] <- mad
   results$SE[i] <- SE
 
@@ -157,6 +167,13 @@ ggplot(results, aes(x = window_start, y = SE)) +
        x = "Starting Row Index",
        y = "StdErr")
 
+ggplot(results, aes(x = window_start, y = SD)) +
+  geom_line(color = "steelblue") +
+  geom_point() +
+  labs(title = "Evolution of StdDev as Start Points are Removed",
+       x = "Starting Row Index",
+       y = "Std Dev")
+
 junk %>% select(turbidity_NTU,dttm_norm)
 new_rows <- matrix(NA, nrow = min_n, ncol = ncol(results)) %>%
   as_tibble(.name_repair = "minimal") %>%
@@ -165,7 +182,7 @@ new_rows <- matrix(NA, nrow = min_n, ncol = ncol(results)) %>%
 results <- results %>%
   bind_rows(new_rows)
 
-results$turbidity_NTU <- junk$turbidity_NTU
+results$turbidity_NTU <- junk$turbidity_NTU[1:n_windows]
 
 ggplot(junk, aes(x = row_number(dttm_norm), y = turbidity_NTU)) +
   geom_point() + geom_smooth(method = 'lm', se = FALSE) +
@@ -185,3 +202,19 @@ stable_zone <- which(
     c(NA, mad_diff) < mad_diff_thresh
 )
 stable_zone
+
+# Just use the tail
+# Trim drops the jiggle, then drop 25% more and trust it
+n_tail <- ceiling(nrow(junk)*0.75)
+
+eh <- median(tail(junk$turbidity_NTU,n_tail))
+
+se_eh <- sd(tail(junk$turbidity_NTU,n_tail))/sqrt(n_tail)
+sd_eh <- sd(tail(junk$turbidity_NTU,n_tail))
+mad_eh <- mad(tail(junk$turbidity_NTU,n_tail))
+
+ggplot(junk, aes(x = row_number(dttm_norm), y = turbidity_NTU)) +
+  geom_point() + geom_smooth(method = 'lm', se = FALSE) +
+  geom_hline(yintercept = eh, color = 'blue') +
+  geom_hline(yintercept = c(eh + sd_eh, eh - sd_eh), col = 'red') +
+  geom_hline(yintercept = c(eh + mad_eh, eh - mad_eh), col = 'green')
