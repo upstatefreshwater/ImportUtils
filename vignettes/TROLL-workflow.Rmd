@@ -210,6 +210,7 @@ Now we have flagged stationary depth from 0 - 8 meters at 1.0 m intervals.
 *Note* that the function extracts actual depth as the mean of stationary depths. 
 
 ##Step 4: Detect Stable Sensor Data Inside Stationary Blocks
+
 **NOTE** This function handles one column of sensor data at a time. It is iteratively applied 
 accross all parameter column within `TROLL_profile_compiler`. 
 

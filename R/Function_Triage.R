@@ -50,7 +50,7 @@ table(unlist(process_log))
 
 
 # Individual use ----
-data_read       <- TROLL_read_data(datafiles[29])
+data_read       <- TROLL_read_data(datafiles[5])
 data_rename     <- TROLL_rename_cols(data_read)
 data_stationary <- is_stationary(data_rename,
                                  stationary_secs = 28,
@@ -92,21 +92,23 @@ lines(y = xx$stationary_depth * -1,
 
 # Mess with stationary blocks and various noise calculations ----
 library(tidyverse)
-# data.frame(depth = data_stationary$stationary_depth,
-#            turb  = data_stable$turbidity_NTU_stable)
-one <- TROLL_read_data('inst/extdata/2025-10-07_QL1.csv')
-two <- TROLL_rename_cols(one)
-data_stationary <- is_stationary(two,
-                                 stationary_secs = 38,
-                                 start_trim_secs = 6,
-                                 depth_range_threshold = 0.1,
-                                 plot = T) %>%
-  mutate(stationary_depth = round(stationary_depth,3))
+
+
+# one <- TROLL_read_data('inst/extdata/2025-10-07_QL1.csv')
+# two <- TROLL_rename_cols(one)
+
+# data_stationary <- is_stationary(two,
+#                                  stationary_secs = 38,
+#                                  start_trim_secs = 6,
+#                                  depth_range_threshold = 0.1,
+#                                  plot = T) %>%
+#   mutate(stationary_depth = round(stationary_depth,3))
+
 min_n <- 5
 
 # 1. Prep the data
 junk <- data_stationary %>%
-  filter(stationary_depth == 2.132 ) %>%
+  filter(stationary_depth == 1.993) %>% #  0.993) %>%
   mutate(dttm_norm = as.numeric(DateTime - min(DateTime)) / 60)
 
 # 2. Window Size
@@ -182,15 +184,16 @@ new_rows <- matrix(NA, nrow = min_n, ncol = ncol(results)) %>%
 results <- results %>%
   bind_rows(new_rows)
 
-results$turbidity_NTU <- junk$turbidity_NTU[1:n_windows]
+results$turbidity_NTU <- junk$turbidity_NTU
 
 ggplot(junk, aes(x = row_number(dttm_norm), y = turbidity_NTU)) +
-  geom_point() + geom_smooth(method = 'lm', se = FALSE) +
-  geom_hline(yintercept = median(junk$turbidity_NTU)) +
+  geom_point() + geom_smooth(method = 'lm', se = FALSE, col = 'green') + geom_line() +
+  geom_hline(yintercept = median(junk$turbidity_NTU), col = 'blue', lty = 2) +
   coord_cartesian(xlim = c(0,nrow(results)))
 
 
 # openxlsx::write.xlsx(data_stationary,file = '//aquadog/analysis/R_Scripts_Functions/UFI_Packages/Package_Build_Helpers/ImportUtils_testing/stationary_processed_example.xlsx')
+# openxlsx::write.xlsx(data_stationary,file = '//aquadog/analysis/R_Scripts_Functions/UFI_Packages/Package_Build_Helpers/ImportUtils_testing/QL_example_stationary.xlsx')
 
 # Testing ----
 mad_thresh <- 0.15
@@ -205,7 +208,7 @@ stable_zone
 
 # Just use the tail
 # Trim drops the jiggle, then drop 25% more and trust it
-n_tail <- ceiling(nrow(junk)*0.75)
+n_tail <- ceiling(nrow(junk)*0.75)-min_n
 
 eh <- median(tail(junk$turbidity_NTU,n_tail))
 
@@ -213,8 +216,22 @@ se_eh <- sd(tail(junk$turbidity_NTU,n_tail))/sqrt(n_tail)
 sd_eh <- sd(tail(junk$turbidity_NTU,n_tail))
 mad_eh <- mad(tail(junk$turbidity_NTU,n_tail))
 
-ggplot(junk, aes(x = row_number(dttm_norm), y = turbidity_NTU)) +
-  geom_point() + geom_smooth(method = 'lm', se = FALSE) +
-  geom_hline(yintercept = eh, color = 'blue') +
-  geom_hline(yintercept = c(eh + sd_eh, eh - sd_eh), col = 'red') +
-  geom_hline(yintercept = c(eh + mad_eh, eh - mad_eh), col = 'green')
+# Create a helper data frame for the SD lines
+sd_lines <- data.frame(
+  intercept = c(eh + sd_eh, eh - sd_eh),
+  type = "SD"
+)
+
+ggplot(junk %>%
+         mutate(color = ifelse(row_number() > nrow(.) - n_tail,
+                               'Used',
+                               'Not Used')),
+                aes(x = row_number(dttm_norm), y = turbidity_NTU)) +
+  geom_point(aes(color = color), cex =  5) +
+  geom_smooth(method = 'lm', se = FALSE) + geom_line() +
+  geom_hline(aes(yintercept = eh, color = 'Median')) +
+  geom_hline(data = sd_lines, aes(yintercept = intercept, color = type)) +
+  # geom_hline(yintercept = c(eh + mad_eh, eh - mad_eh), col = 'green') +
+  scale_color_manual(name = '',
+                     values = c("Used" = "blue", "Not Used" = "grey",
+                                "Median" = "black", "SD" = "red"))
