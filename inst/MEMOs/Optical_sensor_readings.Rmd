@@ -45,7 +45,7 @@ at a 90 degree angle from transmitted light. An image is helpful:
 
 With that in mind we can examine some stationary blocks of data more closely. 
 
-```{r, echo=FALSE,include=TRUE,fig.align='left',fig.width=10,fig.height=5, fig.cap='Figure 1: Turbidity data as a timeseries.'}
+```{r, echo=FALSE,include=TRUE,fig.align='left',fig.width=7,fig.height=3, fig.cap='Figure 1: Turbidity data as a timeseries.'}
 data_stationary <- is_stationary(
   data_rename,
   stationary_secs = 22,
@@ -69,7 +69,7 @@ threshold have been relaxed from defaults.
 Let's examine the "bounciest" stationary block from 9 meters. 
 
 
-```{r, echo=FALSE,include=TRUE,fig.align='left',fig.width=10,fig.height=5, fig.cap='Figure 2: Turbidity data within the 9 m stationary block.'}
+```{r, echo=FALSE,include=TRUE,fig.align='left',fig.width=7,fig.height=3, fig.cap='Figure 2: Turbidity data within the 9 m stationary block.'}
 pdat <- turb_stable[[10]]
 
 p1 <- 
@@ -100,7 +100,7 @@ globally within the `TROLL_profile_compiler()` function. Since we are working ou
 **Using a value of 0.5 NTU/min, coupled with the unrestrictive `range_thresh` value, results in Figure 1, where most data within
 stationary blocks are considered stable**
 
-```{r, warning = FALSE, message = FALSE,echo=FALSE,include=TRUE,fig.align='left',fig.width=10,fig.height=5, fig.cap='Figure 2: Turbidity data within the 9 m stationary block.'}
+```{r, warning = FALSE, message = FALSE,echo=FALSE,include=TRUE,fig.align='left',fig.width=7,fig.height=3, fig.cap='Figure 2: Turbidity data within the 9 m stationary block.'}
 p_med <- median(pdat$turbidity_NTU[pdat$turbidity_NTU_stable==T])
 p_all <-  median(pdat$turbidity_NTU)
 
@@ -132,7 +132,7 @@ Additionally, as it moves past, it will scatter the light differentially but in 
 
 **To examine this we can look at a plot of the lagged differences in the turbidity data**.
 
-```{r echo=FALSE, fig.align='left', fig.cap='Figure 3: Lagged differences in turbidity data', fig.height=5, fig.width=10, message=FALSE, warning=FALSE, include=TRUE}
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 3: Lagged differences in turbidity data', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
 dplot_dat <- 
 pdat %>% 
   mutate(jumps = c(NA,diff(turbidity_NTU)))
@@ -153,12 +153,69 @@ A couple of things result from this illustration:
   2. To accurately convey these data in a report, we need to incorporate an adequate amount of this noise
   3. There really is no realm where we shouldn't be reporting a measure of variability (standard deviation) around our reported median
 
+## Chlorophyll/BGA
+
+The chlorophyll/BGA sensor on the AquaTrolls are also optical with T95 times of < 1 second. 
+
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 4: Complete chlorophyll cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
+chl_stable <- TROLL_sensor_stable(data_stationary,
+                                  value_col = chlorophyll_RFU,
+                                  plot = T) %>%
+  filter(is_stationary_status == 999) %>%
+  select(DateTime,stationary_depth,chlorophyll_RFU,chlorophyll_RFU_stable) %>%
+  group_by(stationary_depth) %>%
+  group_split()
+
+chl_stable <- chl_stable[[6]]
+```
+
+In this figure we see that, despite having fewer stationary blocks with high RFU values compared to high NTU for turbidity, there is a similar pattern to turbidity, 
+where the data are noisier at higher levels, and it seems that there are consistent linear shifts in readings punctuated by large "jumps". This sensor behavior seems
+consistent with particulates impacting the optical field as before. 
+
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 4: Complete BGA cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
+bga_stable <- TROLL_sensor_stable(data_stationary,
+                                  value_col = bga_fluorescence_RFU,
+                                  plot = T) %>%
+  filter(is_stationary_status == 999) %>%
+  select(DateTime,stationary_depth,bga_fluorescence_RFU,bga_fluorescence_RFU_stable) %>%
+  group_by(stationary_depth) %>%
+  group_split()
+
+bga_stable <-bga_stable[[6]]
+
+```
+
+A similar pattern to chlorophyll is seen in the BGA data, except there is a little more noise at low RFU values. Of note here, the default `range_thresh` for
+`TROLL_sensor_stable` is set to 0.02, which is quite restrictive. The default in the stability ranges dataset is currrently 0.3, which is much more lenient. 
+The internal ranges dataset was based on compilation of actual data, but the optical sensors were highly variable among casts/locations, so it was hard to 
+pick a single value. 
+
+
 ## Path Forward
 
-So where does that leave us? I think that the path of least friction is to remove range threshold criteria for optical sensors and rely solely on 
-relatively lax slope thresholding for stability detection. I think for now, we should keep slope as a tunable parameter rather than trying 
-to automate something with coefficient of variation within the function which would automatically adjust thresholding. My only concern is 
-how do the sensors behave as they age? Supposedly, In-Situ accounts for this, so I guess time will tell. 
+So where does that leave us? 
 
-## Chlorophyll/BGA
+I think that if we ensure ample trimming at the start of the stationary blocks with the `start_trim_secs` argument of `is_stationary()`,
+there is no reason to discard data for optical sensors throughout the remainder of the stationary period, with one caveat. 
+
+**It may be prudent to check for and remove outliers with high influence on the result of the summary statistic (median by default)**. 
+
+In the BGA data (Figure 4) there is a relative spike near the beginning of the 1 m stationary block, which is excluded right now based on the `range_thresh` value. 
+While this could be real, given the relative brevity of our sonde hold times at each depth relative to the noise, this could be candidate for removal based 
+on an outlier detection routine. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
