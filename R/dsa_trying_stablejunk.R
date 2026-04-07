@@ -52,3 +52,26 @@ TROLL_profile_compiler(path = data_path,
 TROLL_sensor_stable(data_stationary,
                     value_col = temperature_C,
                     plot = T)
+
+junk <- TROLL_read_data(path = 'inst/extdata/check1.csv') %>%
+  TROLL_rename_cols(strip_metadata = F)
+
+ggplot(junk,
+       aes(x = depth_m, y = temperature_C)) +
+  geom_point() + geom_line()
+
+
+ggplot(junk,
+       aes(x = temperature_C, y = chlorophyll_RFU)) +
+  geom_point() + geom_line()
+
+
+ggplot(data_stationary %>% filter(depth_m < 3),
+       aes(x = DateTime, y= temperature_C)) +
+  geom_point() +
+  geom_point(aes(y = turbidity_NTU*15, color = 'Turb')) +
+  coord_cartesian(ylim = c(19,25))
+
+ggplot(junk,
+       aes(x = temperature_C, y = turbidity_NTU)) +
+  geom_point() + geom_line()

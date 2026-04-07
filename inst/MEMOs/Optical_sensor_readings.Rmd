@@ -100,7 +100,7 @@ globally within the `TROLL_profile_compiler()` function. Since we are working ou
 **Using a value of 0.5 NTU/min, coupled with the unrestrictive `range_thresh` value, results in Figure 1, where most data within
 stationary blocks are considered stable**
 
-```{r, warning = FALSE, message = FALSE,echo=FALSE,include=TRUE,fig.align='left',fig.width=7,fig.height=3, fig.cap='Figure 2: Turbidity data within the 9 m stationary block.'}
+```{r, warning = FALSE, message = FALSE,echo=FALSE,include=TRUE,fig.align='left',fig.width=7,fig.height=3, fig.cap='Figure 3: Turbidity data within the 9 m stationary block.'}
 p_med <- median(pdat$turbidity_NTU[pdat$turbidity_NTU_stable==T])
 p_all <-  median(pdat$turbidity_NTU)
 
@@ -132,7 +132,7 @@ Additionally, as it moves past, it will scatter the light differentially but in 
 
 **To examine this we can look at a plot of the lagged differences in the turbidity data**.
 
-```{r echo=FALSE, fig.align='left', fig.cap='Figure 3: Lagged differences in turbidity data', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 3: Lagged differences in turbidity data', fig.height=4, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
 dplot_dat <- 
 pdat %>% 
   mutate(jumps = c(NA,diff(turbidity_NTU)))
@@ -157,7 +157,7 @@ A couple of things result from this illustration:
 
 The chlorophyll/BGA sensor on the AquaTrolls are also optical with T95 times of < 1 second. 
 
-```{r echo=FALSE, fig.align='left', fig.cap='Figure 4: Complete chlorophyll cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 5: Complete chlorophyll cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
 chl_stable <- TROLL_sensor_stable(data_stationary,
                                   value_col = chlorophyll_RFU,
                                   plot = T) %>%
@@ -173,7 +173,7 @@ In this figure we see that, despite having fewer stationary blocks with high RFU
 where the data are noisier at higher levels, and it seems that there are consistent linear shifts in readings punctuated by large "jumps". This sensor behavior seems
 consistent with particulates impacting the optical field as before. 
 
-```{r echo=FALSE, fig.align='left', fig.cap='Figure 4: Complete BGA cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
+```{r echo=FALSE, fig.align='left', fig.cap='Figure 6: Complete BGA cast data.', fig.height=3, fig.width=7, message=FALSE, warning=FALSE, include=TRUE}
 bga_stable <- TROLL_sensor_stable(data_stationary,
                                   value_col = bga_fluorescence_RFU,
                                   plot = T) %>%
