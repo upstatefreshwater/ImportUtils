@@ -71,6 +71,9 @@ get_sample_interval <- function(datetime_data,
   sampling_int
 }
 
+# (deprecated) ----
+# This function is not currently used after the removal of `start_trim_secs` from `is_stationary`
+
 # Trimming utility for is_stationary
 # This function is specific to the is_stationary function
 # and accepts a Boolean vector where rolling_range < depth_range_threshold == TRUE
@@ -93,6 +96,7 @@ trim_stationary_starts <- function(range_met_vector,
   starts_idx <- which(c(NA, diff(bool_roll)) == 1)
 
   out <- c()
+
   # Loop through each detected stationary block
 
   if(trim_n < rolling_n){

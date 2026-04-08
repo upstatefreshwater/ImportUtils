@@ -4,7 +4,7 @@
 #' It can handle irregular sampling intervals, optionally trims the start of stationary blocks, and optionally plots
 #' depth and rolling range over time.
 #'
-#' @param df A data frame containing depth and datetime observations.
+#' @param df A data frame containing depth and datetime observations. Optionally, a path may be passed to the location of a raw TROLL CSV file, in which case `TROLL_read_data()` and `TROLL_rename_cols()` will be run with default setting to create `df`..
 #' @param depth_col Column in `df` representing depth measurements (numeric). Default is `depth_m`.
 #' @param datetime_col Column in `df` representing observation timestamps (POSIXt). Default is `DateTime`.
 #' @param depth_range_threshold Numeric. Maximum depth range within a rolling window to consider the sonde stationary. Default is `0.05`.
@@ -60,9 +60,14 @@ is_stationary <- function(df,
                           depth_range_threshold = 0.05,
                           stationary_secs = 60,
                           rolling_range_secs = 10,
-                          start_trim_secs = 15,
+                          # start_trim_secs = 15,
                           drop_cols = TRUE,
                           plot = FALSE) {
+  # 000. --- Allow path passing to df argument --- ----
+  if(is.character(df)){
+    df <- TROLL_read_data(path = df) |>
+      TROLL_rename_cols()
+  }
   # 00. --- Tidy Eval --- ----
   depth_col <- rlang::enquo(depth_col)
   datetime_col <- rlang::enquo(datetime_col)
@@ -91,13 +96,6 @@ is_stationary <- function(df,
   # Check on sampling interval
   samp_int <- get_sample_interval(df[[datetime_name]]) # this will warn if multiple sampling intervals exist
 
-    # Check that the start_trim_secs is large enough to
-
-  # Check that user didn't accidentally trim more data than stationary_secs
-  if(start_trim_secs >= stationary_secs){
-    stop('"start_trim_secs" must be smaller than "stationary_secs"')
-  }
-
   # 0-a. --- If sonde fixed in position, return data with is_stationary_status == 999 for all rows ---
   if(samp_int > 30){
     z_range <- range(df[[depth_name]], na.rm = TRUE)
@@ -114,11 +112,6 @@ is_stationary <- function(df,
   # 1. --- Create objects needed for flagging stationary blocks --- ----
   stationary_n <- ceiling(stationary_secs / samp_int)                           # The number of obs needed to be considered fully stationary
   rolling_n <- ceiling(rolling_range_secs / samp_int)                           # The number of obs needed for the rolling range window
-  trim_n <- max(1,ceiling(start_trim_secs / samp_int))                          # The number of obs to trim off the start of a stationary block (force at least 1)
-  start_n_trimmed <- rolling_n - trim_n                                         # The number of obs to flag as stationary after trimming at the start of stationary blocks
-
-
-  # return(start_n_trimmed)
 
   # If window is more than the number of rows in the dataset
   if(rolling_n > nrow(df)){
@@ -140,35 +133,47 @@ is_stationary <- function(df,
   # Initialize stationary flag as all FALSE
   is_stationary_flag <- rep(FALSE, length(depth_vals))
 
-  # Create an index of positions where the rolling range is below the "depth_range_threshold"
-  good_rollrange_idx <-  which(!is.na(roll_range) & roll_range < depth_range_threshold) #
+  # # Create an index of positions where the rolling range is below the "depth_range_threshold"
+  # good_rollrange_idx <-  which(!is.na(roll_range) & roll_range < depth_range_threshold) #
+  #
+  # # Update stationary flag with TRUE locations
+  # # Mark those locations from the rolling range threshold index as TRUE
+  # is_stationary_flag[good_rollrange_idx] <- TRUE                                 # This has to be done before trimming!!!
 
-  # Update stationary flag with TRUE locations
-  # Mark those locations from the rolling range threshold index as TRUE
-  is_stationary_flag[good_rollrange_idx] <- TRUE                                 # This has to be done before trimming!!!
+  is_stationary_flag <- !is.na(roll_range) & roll_range < depth_range_threshold
+  # 4. --- Trim initial obs of each stationary block --- ----
 
-  # 4. --- Apply trimming logic --- ----
+  # Done to avoid continuity issues when sonde movement are completed in less than 2 seconds
+
   # Create a boolean where rolling range below the range threshold is TRUE
-  bool_roll <- !is.na(roll_range) & roll_range < depth_range_threshold          # Avoid NA propagation issues
+  # bool_roll <- !is.na(roll_range) & roll_range < depth_range_threshold          # Avoid NA propagation issues
 
+  # Identify starts for stationary blocks
+  trim_idx <-  which(c(FALSE, diff(is_stationary_flag)) == 1)
+
+  # Update stationary flag to trim 1 observation from each stationary block start
+  is_stationary_flag[trim_idx] <- FALSE
+
+  #####this chunk becomes unused#####
   # This utility function returns indices of stable observations to be trimmed from the start of the stable period
-  trim_idx <- trim_stationary_starts(range_met_vector = bool_roll,
-                                     rolling_n = rolling_n,
-                                     depth_range_threshold = depth_range_threshold,
-                                     trim_n = trim_n)
+
+    # trim_idx <- trim_stationary_starts(range_met_vector = bool_roll,
+    #                                  rolling_n = rolling_n,
+    #                                  depth_range_threshold = depth_range_threshold,
+    #                                  trim_n = trim_n)
 
   # Update the stationary_flag to include trimming
   # If the n_obs to be trimmed is less than the rolling window,
   # shift the difference of obs to TRUE from the start_idx backwards
-  if(trim_n < rolling_n){
-    is_stationary_flag[trim_idx] <- TRUE
-
-    #If there are more n_obs to be trimmed than the size of the rolling window,
-    # convert the difference to FALSE between start_idx:trim_n
-  } else{
-    is_stationary_flag[trim_idx] <- FALSE
-  }
-
+  # if(trim_n < rolling_n){
+  #   is_stationary_flag[trim_idx] <- TRUE
+  #
+  #   #If there are more n_obs to be trimmed than the size of the rolling window,
+  #   # convert the difference to FALSE between start_idx:trim_n
+  # } else{
+  #   is_stationary_flag[trim_idx] <- FALSE
+  # }
+###########unused ends here###############
   # 5. --- Calculate stationary block duration --- ----
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
   df_out <- df |>
