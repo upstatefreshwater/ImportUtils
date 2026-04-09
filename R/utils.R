@@ -79,7 +79,7 @@ get_sample_interval <- function(datetime_data,
 # and accepts a Boolean vector where rolling_range < depth_range_threshold == TRUE
 
 trim_stationary_starts <- function(range_met_vector,
-                                   depth_range_threshold,
+                                   # depth_range_threshold,
                                    rolling_n,
                                    trim_n){
   if(!is.logical(range_met_vector)){

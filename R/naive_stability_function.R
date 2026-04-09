@@ -68,10 +68,10 @@ plot_stability <- function(df,
 #' are both met. If both metrics fall within the specified thresholds,
 #' the observation and all subsequent rows in that block are flagged as stable.
 #'
-#' A minimum duration of data can be enforced using \code{min_secs}, which is
+#' A minimum duration of data can be enforced using \code{min_median_secs}, which is
 #' converted internally to a minimum number of observations based on the sampling
 #' interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
-#' will be flagged as `<data_column_name>_stable` for only the `min_secs` before
+#' will be flagged as `<data_column_name>_stable` for only the `min_median_secs` before
 #' the sonde is in motion again.
 #'
 #' This function requires that stationary blocks have already been identified
@@ -82,7 +82,7 @@ plot_stability <- function(df,
 #' @param value_col Unquoted name of the sensor column to evaluate for stability
 #'   (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).
 #'
-#' @param min_secs Minimum duration (seconds) of observations required to compute
+#' @param min_median_secs Minimum duration (seconds) of observations required to compute
 #'   stability statistics. This value is converted internally to the minimum
 #'   number of observations required in a stationary block. Default is \code{5}.
 #'
@@ -134,7 +134,7 @@ plot_stability <- function(df,
 #' dat <- TROLL_sensor_stable(
 #'   df = dat,
 #'   value_col = pH_units,
-#'   min_secs = 5,
+#'   min_median_secs = 5,
 #'   slope_thresh = 0.05,
 #'   range_thresh = 0.02
 #' )
@@ -146,12 +146,15 @@ plot_stability <- function(df,
 #' @export
 TROLL_sensor_stable <- function(df,
                                 value_col = pH_units,
-                                min_secs = 5,               # number of obs required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
-                                slope_thresh = 0.05,     # units/minute
-                                range_thresh = 0.02,
+                                min_median_secs = 5,            # minimum time required for median calculation (set to 1 if you want to keep as few as just the final obs in each stationary group)
+                                slope_thresh = NULL,     # units/minute
+                                range_thresh = NULL,
+                                settling_secs = 10,
                                 drop_cols = TRUE,
                                 verbose = FALSE,
                                 plot = FALSE){
+  # 00.--- Use default slope/range thresholds if NULL arg --- ----
+  # FIX add default range/slope thresh code##################
   # 0. --- Tidy Eval --- ----
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
@@ -176,12 +179,12 @@ TROLL_sensor_stable <- function(df,
                 '\n\nBe sure to run "is_stationary" first to identify stationary blocks.'))
   }
 
-  # Check min_secs and slope_thresh are positive numeric
-  if( !is.numeric(min_secs) || !is.numeric(slope_thresh) ){
-    stop('\nBoth "min_secs" and "slope_thresh" must be positive numeric values.')
+  # Check min_median_secs and slope_thresh are positive numeric
+  if( !is.numeric(min_median_secs) || !is.numeric(slope_thresh) ){
+    stop('\nBoth "min_median_secs" and "slope_thresh" must be positive numeric values.')
   }
-  if(!(min_secs >= 0 && slope_thresh >= 0)){
-    stop('\nBoth "min_secs" and "slope_thresh" must be positive numeric values.')
+  if(!(min_median_secs >= 0 && slope_thresh >= 0)){
+    stop('\nBoth "min_median_secs" and "slope_thresh" must be positive numeric values.')
   }
 
   # Check that stationary blocks exist with fully stationary status (999)
@@ -200,36 +203,64 @@ TROLL_sensor_stable <- function(df,
                    '\nfound in the data'))
   }
 
+
   # 2. --- Calculate min_obs to keep --- ----
+  #FIX min_obs to use time ################
   samp_int <- get_sample_interval(datetime_data = df$DateTime, output_units = 'secs',
                                   tol_prop = 1,suppress_warning = TRUE)
 
-  min_obs <- ceiling(min_secs / samp_int)
-  # Check that enough data points in every stationary block to accomodate min_obs
-  blocksizes <- df |>
-    dplyr::group_by(stationary_block_id) |>
-    dplyr::filter(is_stationary_status == 999) |>
-    dplyr::mutate(
-      block_n = dplyr::n()
-    ) |>
-    dplyr::pull(block_n) |>
-    unique()
+  min_obs <- ceiling(min_median_secs / samp_int)
 
-  # Strict stop for now, could update to use full block instead with warning later if desired (already coded, commented out)
-  if(any(blocksizes < min_obs)){
-    stop(paste0('\nToo few observations exist in at least one stationary block to accomodate "min_secs" requirement.\n',
-         'Reduce "min_secs" to be below the shortest stationary block: \n',
-         min(blocksizes,na.rm = TRUE)*samp_int))
+  # 3. --- Trim off settling time from stationary blocks --- ----
+
+  # Use time based trimming to avoid issues with bluetooth glitches
+  # FIX the AI doesn't like my ifelse solution to get rid of warnings#######################
+  df <- df |>
+    dplyr::group_by(stationary_block_id) |>
+    dplyr::mutate(
+      # Mark stationary block start time for fully stationary blocks only
+      block_start_time = ifelse(is_stationary_status == 999,
+                                min(DateTime[is_stationary_status == 999], na.rm = TRUE),
+                                NA),
+      # Calculate actual time since start of block
+      time_since_start = as.numeric(difftime(DateTime, block_start_time, units = "secs")),
+      # Change the stationary flag to 888 to indicate trimming occurred
+      is_stationary_status = dplyr::if_else(
+        is_stationary_status == 999 & time_since_start < settling_secs,
+        888,
+        is_stationary_status
+      )
+    ) |>
+    dplyr::ungroup()
+  return(df)
+
+  # Check for enough time in every stationary block to accommodate min_median_secs
+  block_durations <- df |>
+    dplyr::filter(is_stationary_status == 999) |>
+    dplyr::group_by(stationary_block_id) |>
+    dplyr::summarise(
+      duration = as.numeric(max(DateTime) - min(DateTime), units = "secs")
+    ) |>
+    dplyr::pull(duration)
+
+  # Strict stop for now, could update to use full block instead with warning later if desired
+  if(any(block_durations < min_median_secs)){
+    stop("Stationary block too short in duration...")
   }
 
-  # 3. --- Filter data into stationary blocks --- ----
+  # 4. --- Filter data into stationary blocks --- ----
+
+  #Possible add logic###############
+  # If we want to make this dependent on the parameter type (trim setting out only for optical params,
+  # and let range + slope thresholds decide for others), this would be the place to add that logic.
+
   dat_base <- df |>
     dplyr::ungroup() |>
     dplyr::filter(
       is_stationary_status == 999,
       !is.na(.data[[value_name]])  # remove rows with NA in the value_col data
     )
-  # 4. --- Group data into blocks, and split groups into a list --- ----
+  # 5. --- Group data into blocks, and split groups into a list --- ----
 
   dat_grouped <- dat_base |>
     dplyr::group_by(stationary_block_id) |>
@@ -237,7 +268,8 @@ TROLL_sensor_stable <- function(df,
       t = as.numeric(difftime(DateTime, DateTime[1], units = "mins")) # Standardize time into minutes from start of data
     ) |>
     dplyr::group_split()
-  # 5. --- Compute range and slope over stationary blocks --- ----
+
+  # 6. --- Compute range and slope over stationary blocks --- ----
   # Pre-allocate output object
   out_list <- vector("list", length(dat_grouped))
 
@@ -270,7 +302,7 @@ TROLL_sensor_stable <- function(df,
 
     # **Reset good_flag per group** (marker to keep final "_stable" flat as TRUE once one row meets range + slope thresholds combined)
     good_flag <- FALSE
-
+# FIX min_obs to use time########################
     # Set min_obs rows slope and range OK flags to keep data if threshold is never met
     if(nrow(group_out) < min_obs){
       msg_depth <- unique(stable_group_dat$stationary_depth)
@@ -286,15 +318,6 @@ TROLL_sensor_stable <- function(df,
     # assign sensor data and time to variables
     x_all <- stable_group_dat$t
     y_all <- stable_group_dat[[value_name]]
-
-    # Create a safety net in case the # of data rows < min_obs
-    # if(n < min_obs) {  # If fewer rows of data exist than the min_obs as specified
-    #   n_windows <- n # Use all available data to compute statistics (slope, range)
-    #   msg_depth <- unique(stable_group_dat$stationary_depth)
-    #   warning(paste0('The given "min_obs" is larger than the number of stable data identified for ',value_name,' at',msg_depth,'.'))
-    # } else {         # Or if more data exist than min_obs rows
-    #   n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
-    # }
 
     n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
 
@@ -337,14 +360,7 @@ TROLL_sensor_stable <- function(df,
       if(slope_good) {
         group_out$slope_ok[win_start] <- TRUE
       }
-#####################
-      # tryCatch(
-      #   range_good <- win_range <= range_thresh,
-      #
-      # )
 
-
-##############3
       range_good <- win_range <= range_thresh
       if(range_good){
         group_out$range_ok[win_start] <- TRUE
@@ -361,7 +377,7 @@ TROLL_sensor_stable <- function(df,
   }
 
 
-  # . Compile data output --- ----
+  # 7. --- Compile data output --- ----
   # Compile the group_out into a dataframe
   out <- dplyr::bind_rows(out_list)
 
@@ -380,7 +396,7 @@ TROLL_sensor_stable <- function(df,
     dplyr::relocate(all_of(value_flag_col), .after = all_of(value_name)) |>
     dplyr::ungroup()
 
-  # 6. --- Optional Plotting --- ----
+  # 8. --- Optional Plotting --- ----
   if(plot == TRUE){
     plot_stability(df = final,
                    value_col_sym = value_col,
@@ -395,7 +411,7 @@ TROLL_sensor_stable <- function(df,
 # xx <-
 #   TROLL_sensor_stable(df = dat_stationary,
 #                       value_col = sp_conductivity_uScm,
-#                       min_secs = 5,
+#                       min_median_secs = 5,
 #                       slope_thresh = 0.05,
 #                       range_thresh = 0.1,
 #                       drop_cols = TRUE,
@@ -403,5 +419,8 @@ TROLL_sensor_stable <- function(df,
 #                       plot = TRUE);xx
 
 # Need to deal with y axis scaling when it blows up
-
-
+xx <-
+TROLL_sensor_stable(data_stationary,
+                    value_col = chlorophyll_RFU,
+                    range_thresh = 0.5, slope_thresh = 0.5,
+                    plot = T)

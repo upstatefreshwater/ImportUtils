@@ -13,6 +13,7 @@ data_stationary <- is_stationary(data_rename,
 
 chl_stable <- TROLL_sensor_stable(data_stationary,
                                   value_col = chlorophyll_RFU,
+                                  range_thresh = 0.5, slope_thresh = 0.5,
                                   plot = T) %>%
   filter(is_stationary_status == 999) %>%
   select(DateTime,stationary_depth,chlorophyll_RFU,chlorophyll_RFU_stable) %>%
