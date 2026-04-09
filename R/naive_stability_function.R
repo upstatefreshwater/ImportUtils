@@ -153,12 +153,18 @@ TROLL_sensor_stable <- function(df,
                                 drop_cols = TRUE,
                                 verbose = FALSE,
                                 plot = FALSE){
-  # 00.--- Use default slope/range thresholds if NULL arg --- ----
-  # FIX add default range/slope thresh code##################
+
   # 0. --- Tidy Eval --- ----
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
   value_flag_col <- paste0(value_name,"_stable")
+  # 00.--- Use default slope/range thresholds if NULL arg --- ----
+  if(is.null(slope_thresh)){
+    slope_thresh <- stability_ranges$slope_thresh[stability_ranges$param == value_name]
+  }
+  if(is.null(range_thresh)){
+    range_thresh <- stability_ranges$range_thresh[stability_ranges$param == value_name]
+  }
   # 1. --- Input/Validation checks --- ----
   # Re-make stationary_block_id if status and depth are present
   if(!'stationary_block_id' %in% names(df) && 'is_stationary_status' %in% names(df)){
@@ -232,7 +238,7 @@ TROLL_sensor_stable <- function(df,
       )
     ) |>
     dplyr::ungroup()
-  return(df)
+
 
   # Check for enough time in every stationary block to accommodate min_median_secs
   block_durations <- df |>
@@ -308,22 +314,40 @@ TROLL_sensor_stable <- function(df,
       msg_depth <- unique(stable_group_dat$stationary_depth)
       warning(paste0('The given "min_obs" is larger than the number of stable data identified for ',value_name,' at',msg_depth,'.'))
     }
-
-    tailstart <- max(1, nrow(group_out) - min_obs + 1) # Number of rows to keep if min_obs only
-
-    group_out$slope_ok[tailstart:nrow(group_out)] <- TRUE
-    group_out$range_ok[tailstart:nrow(group_out)] <- TRUE
-    group_out[[value_flag_col]][tailstart:nrow(group_out)] <- TRUE
-
+##################
     # assign sensor data and time to variables
     x_all <- stable_group_dat$t
     y_all <- stable_group_dat[[value_name]]
 
-    n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
+    end_time <- max(x_all) # extract the end time of the grouped data
+
+    # create an index of the minimum tail to keep based on time
+    valid_tail <- which((end_time - x_all) * 60 <= min_median_secs)
+
+    # Change the "_stable" flag to TRUE for those observations to meet min_median_secs input
+    group_out[[value_flag_col]][valid_tail] <- TRUE
+
+    # Locate the index of the first row kept by force at the tail of the stationary period
+    tailstart <- match(TRUE, group_out[[value_flag_col]])
+
+    # Extract the number of windows to iterate over (data can shrink down to only the length of the tail while searching for slope/range thresholds)
+    n_windows <- tailstart - 1
+
+##################
+    # tailstart <- max(1, nrow(group_out) - min_obs + 1) # Number of rows to keep if min_obs only
+    #
+    # group_out$slope_ok[tailstart:nrow(group_out)] <- TRUE
+    # group_out$range_ok[tailstart:nrow(group_out)] <- TRUE
+    # group_out[[value_flag_col]][tailstart:nrow(group_out)] <- TRUE
+    #
+    #
+    #
+    # n_windows <- n - min_obs + 1 # Evaluate stats for the number of rows (n) minus the tail (min_obs)
 
     # **** Loop over grouped data ----
     for(win_start in seq_len(n_windows)) {                  # Because seq_along(0) = 1, this always works
       # Create an index to subset group data on from the start of the window to the end of the stable data block
+      # **NOTE** this encompasses all group data including the tail!!!!
       idx <- win_start:n
 
       # Subset data using window index
@@ -420,7 +444,7 @@ TROLL_sensor_stable <- function(df,
 
 # Need to deal with y axis scaling when it blows up
 xx <-
-TROLL_sensor_stable(data_stationary,
+TROLL_sensor_stable(dat_stationary,
                     value_col = chlorophyll_RFU,
                     range_thresh = 0.5, slope_thresh = 0.5,
                     plot = T)
