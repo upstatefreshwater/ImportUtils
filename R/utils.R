@@ -137,19 +137,19 @@ trim_stationary_starts <- function(range_met_vector,
     }
   }
 
-  if(trim_n > rolling_n){
-    for (s in starts_idx) {
-      trim_diff <- trim_n - rolling_n
-
-      start_i <- s
-
-      end_i <- s + trim_diff
-
-      out <- c(out,start_i:end_i)
-
-
-    }
-  }
+  # if(trim_n > rolling_n){
+  #   for (s in starts_idx) {
+  #     trim_diff <- trim_n - rolling_n
+  #
+  #     start_i <- s
+  #
+  #     end_i <- s + trim_diff
+  #
+  #     out <- c(out,start_i:end_i)
+  #
+  #
+  #   }
+  # }
   return(out)
 }
 
