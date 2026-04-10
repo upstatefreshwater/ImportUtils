@@ -52,6 +52,11 @@ plot_stability <- function(df,
   print(p1)
 }
 
+# Helper for identifying optical data
+is_optical <- function(name){
+  name %in% c('turbidity_NTU','chlorophyll_RFU','bga_fluorescence_RFU')
+}
+
 
 #' Identify Stable Sensor Values Within Stationary Profiling Blocks
 #'
@@ -158,6 +163,8 @@ TROLL_sensor_stable <- function(df,
   value_col <- rlang::ensym(value_col)
   value_name <- rlang::as_name(value_col)
   value_flag_col <- paste0(value_name,"_stable")
+
+  optical_param <- is_optical(value_name)
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
   if(is.null(slope_thresh)){
     slope_thresh <- stability_ranges$slope_thresh[stability_ranges$param == value_name]
@@ -176,11 +183,13 @@ TROLL_sensor_stable <- function(df,
     }
   }
   # 1. --- Input/Validation checks --- ----
+
   # Re-make stationary_block_id if status and depth are present
   if(!'stationary_block_id' %in% names(df) && 'is_stationary_status' %in% names(df)){
     df <- df |>
       dplyr::mutate(stationary_block_id = dplyr::consecutive_id(is_stationary_status))
   }
+
   # Check required columns exist
   req_cols <- c('DateTime','depth_m','stationary_depth','stationary_block_id','is_stationary_status',value_name)
 
@@ -196,23 +205,23 @@ TROLL_sensor_stable <- function(df,
   }
 
   # Check min_median_secs and slope_thresh are positive numeric
-  if(!is.numeric(min_median_secs) || min_median_secs < 0){
-    stop('"min_median_secs" must be positive numeric.')
+  if(!is.numeric(min_median_secs) || length(min_median_secs) != 1 || is.na(min_median_secs) || min_median_secs < 0){
+    stop('"min_median_secs" must be a single positive numeric value.')
   }
 
-  if(!is.numeric(slope_thresh) || slope_thresh < 0){
-    stop('"slope_thresh" must be positive numeric.')
+  if(!is.numeric(slope_thresh) || length(slope_thresh) != 1 || is.na(slope_thresh) || slope_thresh < 0){
+    stop('"slope_thresh" must be a single positive numeric value.')
   }
 
-  if(!is.numeric(range_thresh) || range_thresh < 0){
-    stop('"range_thresh" must be positive numeric.')
+  if(!is.numeric(range_thresh) || length(range_thresh) != 1 || is.na(range_thresh) || range_thresh < 0){
+    stop('"range_thresh" must be a single positive numeric value.')
   }
 
   # Check that stationary blocks exist with fully stationary status (999)
   z_stationary <- unique(df$stationary_depth[df$is_stationary_status == 999])
 
   if(length(z_stationary) < 1){
-    max_stnthresh <- max(df$is_stationary_status,na.rm = T)
+    max_stnthresh <- max(df$is_stationary_status, na.rm = TRUE)
     stop(paste0('No stationary data blocks (stationary_status 999) found.\n',
                 'Max "is_stationary_status = ', max_stnthresh,' seconds.\n\n',
                 'Try reducing `stationary_secs` in is_stationary() if your deployment had shorter soak times.'))
@@ -265,7 +274,7 @@ TROLL_sensor_stable <- function(df,
   # 3. --- Filter data into stationary blocks --- ----
 
     #**** 3a. Possible add logic###############
-  # If we want to make this dependent on the parameter type (trim setting out only for optical params,
+  # If we want to make this dependent on the parameter type (trim settling out only for optical params,
   # and let range + slope thresholds decide for others), this would be the place to add that logic.
 
   dat_base <- df |>
@@ -283,24 +292,32 @@ TROLL_sensor_stable <- function(df,
     ) |>
     dplyr::group_split()
 
-  # 5. --- Compute range and slope over stationary blocks --- ----
   # Pre-allocate output object
   out_list <- vector("list", length(dat_grouped))
 
-  for (i in seq_along(dat_grouped)) { # seq_along gives list length as 1:length(list)
-    #  **** Extract one stationary group of data within a loop ----
+  # >> Loop through each stationary block ----
+  for (i in seq_along(dat_grouped)) {# seq_along gives list length as 1:length(list)
+    # **** Extract one stationary group of data within a loop ----
     stable_group_dat <- dat_grouped[[i]]                    # Extract one stationary block of data
 
     n <- nrow(stable_group_dat)                             # length of the stationary block (rows)
-
-    # Stationary block depth
-    block_depth <- round(unique(stable_group_dat$stationary_depth),2)
 
     # Stop execution if block is empty
     if(n==0){
       msg_depth <- unique(stable_group_dat$stationary_depth)
       stop(paste0('Zero data returned for depth ',msg_depth))
     }
+
+    # Stationary block depth
+    depth_vals <- unique(stable_group_dat$stationary_depth[!is.na(stable_group_dat$stationary_depth)])
+
+    if(length(depth_vals) != 1){
+      stop("stationary_depth is not constant within a block.")
+    }
+
+    block_depth <- round(depth_vals, 2)
+
+
 
     # **** Pre-allocate group output dataframe ----
     group_out <- tibble::tibble(
@@ -317,27 +334,28 @@ TROLL_sensor_stable <- function(df,
     # Add sensor flag where both slope/range thresholds are met, This dynamically allows different sensor names
     group_out[[value_flag_col]] <- FALSE
 
-    # **Reset good_flag per group** (marker to keep final "_stable" flat as TRUE once one row meets range + slope thresholds combined)
-    good_flag <- FALSE
-
     # assign sensor data and time to variables
     x_all <- stable_group_dat$t
     y_all <- stable_group_dat[[value_name]]
 
     # Compute overall slope for optical params
-    if(value_name %in% c('turbidity_NTU','chlorophyll_RFU','bga_fluorescence_RFU')){
-      full_slope <- {
-        x <- x_all
-        y <- y_all
-        v <- stats::var(x)
-        if(is.na(v) || v == 0) NA_real_ else stats::cov(x, y) / v
-      }
+    if(optical_param){
+      full_slope <- calc_slope(x = x_all, y = y_all)
+      #   {
+      #   x <- x_all
+      #   y <- y_all
+      #   v <- stats::var(x)
+      #   if(is.na(v) || v == 0) NA_real_ else stats::cov(x, y) / v
+      # }
     }
 
+    # **** Flag the tail min_median_secs as "_stable" ----
     end_time <- max(x_all) # extract the end time of the grouped data
 
     # create an index of the minimum tail to keep based on time
     valid_tail <- which((end_time - x_all) * 60 <= min_median_secs)
+    # Force contiguous tail if ever timestamps got messed up
+    valid_tail <- seq.int(min(valid_tail), n)
 
     # Change the "_stable" flag to TRUE for those observations to meet min_median_secs input
     group_out[[value_flag_col]][valid_tail] <- TRUE
@@ -353,18 +371,9 @@ TROLL_sensor_stable <- function(df,
     # Extract the number of windows to iterate over (data can shrink down to only the length of the tail while searching for slope/range thresholds)
     n_windows <- tailstart - 1
 
-    # **** Loop over grouped data ----
-    for(win_start in seq_len(n_windows)) {                  # Because seq_along(0) = 1, this always works
+    # >> Loop that iteratively shrinks each block, calculating stats ----
 
-      # A guard against weird edge case issues:
-      t_start <- x_all[win_start] # extract window start time
-      t_end   <- x_all[n]         # extract window end time
-
-      # If somehow we got to a point below median_min_secs move to next iteration (keeping only the tail, which was already flagged as "_stable" ==TRUE)
-      if((t_end - t_start) * 60 < min_median_secs){
-        next
-      }
-
+    for(win_start in seq_len(n_windows)) {
       # Create an index to subset group data on from the start of the window to the end of the stable data block
       # **NOTE** this encompasses all group data including the tail!!!!
       idx <- win_start:n
@@ -376,22 +385,11 @@ TROLL_sensor_stable <- function(df,
       # **** --- Calculate stats --- ----
 
       # Slope (ALWAYS CALCULATE SLOPE)
-      v <- stats::var(x)
-
-      # Improve efficiency by calculation of slope rather than fitting lm() repeatedly
-      slope_fit <- if(is.na(v) || v == 0) {
-        NA_real_
-      } else {
-        stats::cov(x, y) / v
-      }
-
-      if(is.na(slope_fit)){
-        warning(paste0("Single datapoint used for ",unique(stable_group_dat$stationary_depth),", slope could not be calculated"))
-      }
+      slope_fit <- calc_slope(x=x,y=y)
 
       # Range
 
-      win_range <- diff(range(y))
+      win_range <- max(y) - min(y) #diff(range(y))
 
       # Add stats and metadata to output object at the start index for grouped data
       group_out$slope[win_start] <- slope_fit
@@ -402,30 +400,14 @@ TROLL_sensor_stable <- function(df,
 
       # Flag columns that meet slope/range
       slope_good <- !is.na(slope_fit) && abs(slope_fit) <= slope_thresh
-      if(slope_good) {
-        group_out$slope_ok[win_start] <- TRUE
-      }
+      group_out$slope_ok[win_start] <- slope_good
 
       range_good <- win_range <= range_thresh
-      if(range_good){
-        group_out$range_ok[win_start] <- TRUE
-      }
-
-      # Combined flag if both conditions are met for non-optical probes
-
-      if(!value_name %in% c('turbidity_NTU','chlorophyll_RFU','bga_fluorescence_RFU')){
-        if((slope_good && range_good) || good_flag){
-          group_out[[value_flag_col]][win_start] <- TRUE
-          good_flag <- TRUE
-        }
-        # For optical probes, use all data, warn if slope threshold is exceeded
-      } else{
-        group_out[[value_flag_col]] <- TRUE
-      }
-    }
+      group_out$range_ok[win_start] <- range_good
+    } # > End of shrinking group loop ----
 
     # For optical params, warn if slope exceeds threshold, but do not error
-    if(value_name %in% c('turbidity_NTU','chlorophyll_RFU','bga_fluorescence_RFU')){
+    if(optical_param){
 
       if(!is.na(full_slope) && abs(full_slope) > slope_thresh){
         slope_msg <- paste0('Across all stationary observations for ',
@@ -440,10 +422,25 @@ TROLL_sensor_stable <- function(df,
         warning(slope_msg)
       }
     }
+  # 6. --- Flag "_stable" observations --- ----
+    # Flag all non-optical parameters as "_stable" after slope + range threshold are met once
+    if(!optical_param){
+      # Extract locations where both slope and range thresholds were met simultaneously (if any)
+      stbl_idx <- which(group_out$slope_ok & group_out$range_ok)
 
+      # Update "_stable" flags (NOTE: if slope + range criteria were not met, this reverts to tail only)
+      if(length(stbl_idx) > 0){
+        first_valid <- min(stbl_idx)
+        group_out[[value_flag_col]][first_valid:n] <- TRUE
+      }
+    # Flag all stationary for optical parameters
+    } else{
+      group_out[[value_flag_col]] <- TRUE
+    }
+
+    # 7. --- Assign output to object --- ----
     out_list[[i]] <- group_out
-  }
-
+  } # >End of stationary block loop -----
 
   # 6. --- Compile data output --- ----
   # Compile the group_out into a dataframe
@@ -465,7 +462,7 @@ TROLL_sensor_stable <- function(df,
     dplyr::ungroup()
 
   # 7. --- Optional Plotting --- ----
-  if(plot == TRUE){
+  if(isTRUE(plot)){
     plot_stability(df = final,
                    value_col_sym = value_col,
                    value_flag_col = value_flag_col,

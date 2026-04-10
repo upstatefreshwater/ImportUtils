@@ -1,5 +1,5 @@
 stability_ranges <- tibble::tribble(
-  ~param,                                  ~range_thresh,  ~slope_thresh,
+  ~param,                                  ~range,  ~slope,
 
   'sp_conductivity_uScm',                   0.5,            1,
   "temperature_C",                          0.15,           0.25,

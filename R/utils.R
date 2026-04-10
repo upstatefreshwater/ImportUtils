@@ -1,4 +1,4 @@
-# Finds the nearest depth from a raw data column to a candidate set of target depths
+# Finds the nearest depth from a raw data column to a candidate set of target depths ----
 nearest_depth <- function(raw_z,
                           candidate_z,
                           tol = 0.25,
@@ -25,7 +25,8 @@ nearest_depth <- function(raw_z,
   out
 }
 
-# Calculates the sampling interval from a column/vector of datetime data as the mode (if multiple intervals detected)
+# Calculates the sampling interval ----
+# from a column/vector of datetime data as the mode (if multiple intervals detected)
 # If multiple intervals detected, it gives a warning only
 
 get_sample_interval <- function(datetime_data,
@@ -182,4 +183,22 @@ check_logical <- function(x, name) {
 }
 
 
+
+
+# Extract TROLL slope and range threshold from internal data ----
+
+get_threshold <- function(param, type){
+  val <- stability_ranges[[type]][stability_ranges$param == param]
+  if(length(val) != 1){
+    stop(paste0("No ", type, " found for ", param))
+  }
+  val
+}
+
+# Calculated slope instead of lm() ----
+calc_slope <- function(x, y){
+  v <- stats::var(x)
+  if(is.na(v) || v == 0) return(NA_real_)
+  stats::cov(x, y) / v
+}
 
