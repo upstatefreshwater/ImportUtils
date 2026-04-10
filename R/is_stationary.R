@@ -103,10 +103,10 @@ is_stationary <- function(df,
       stop('Sampling interval > 30s suggests sonde fixed in position, but depth is variable.\n\n
            Review raw data and trim as necessary to proceed.')
     } else{
-    # Would be good to automate a depth check in here
-    message("Sampling interval > 30s detected. Sonde assumed fixed in position.")
-    return(df |> dplyr::mutate(is_stationary_status = 999,
-                               stationary_depth = stats::median(!!depth_col)))
+      # Would be good to automate a depth check in here
+      message("Sampling interval > 30s detected. Sonde assumed fixed in position.")
+      return(df |> dplyr::mutate(is_stationary_status = 999,
+                                 stationary_depth = stats::median(!!depth_col)))
     }
   }
   # 1. --- Create objects needed for flagging stationary blocks --- ----
@@ -131,49 +131,30 @@ is_stationary <- function(df,
 
   # 3. --- Create initial stationary flag and an index for stationary obs based on the rolling window --- ----
   # Initialize stationary flag as all FALSE
-  is_stationary_flag <- rep(FALSE, length(depth_vals))
+  # is_stationary_flag <- rep(FALSE, length(depth_vals))
 
-  # # Create an index of positions where the rolling range is below the "depth_range_threshold"
-  # good_rollrange_idx <-  which(!is.na(roll_range) & roll_range < depth_range_threshold) #
-  #
-  # # Update stationary flag with TRUE locations
-  # # Mark those locations from the rolling range threshold index as TRUE
-  # is_stationary_flag[good_rollrange_idx] <- TRUE                                 # This has to be done before trimming!!!
+  # Create an index of positions where the rolling range is below the "depth_range_threshold"
 
   is_stationary_flag <- !is.na(roll_range) & roll_range < depth_range_threshold
-  # 4. --- Trim initial obs of each stationary block --- ----
 
-  # Done to avoid continuity issues when sonde movement are completed in less than 2 seconds
+  # Identify starts for stationary blocks **NOTE these start at the right side of the window
+  window_start_idx <-  which(c(FALSE, diff(is_stationary_flag)) == 1)
+  out <- c()
+  for (s in window_start_idx) {
 
-  # Create a boolean where rolling range below the range threshold is TRUE
-  # bool_roll <- !is.na(roll_range) & roll_range < depth_range_threshold          # Avoid NA propagation issues
+    true_start <- s - rolling_n + 1
 
-  # Identify starts for stationary blocks
-  trim_idx <-  which(c(FALSE, diff(is_stationary_flag)) == 1)
+    post_trim1_start <- max(1, true_start + 1)
 
+    end <- s - 1
+
+    out <- c(out, post_trim1_start : end)
+  }
+
+  backfill_idx <- out
   # Update stationary flag to trim 1 observation from each stationary block start
-  is_stationary_flag[trim_idx] <- FALSE
+  is_stationary_flag[backfill_idx] <- TRUE
 
-  #####this chunk becomes unused#####
-  # This utility function returns indices of stable observations to be trimmed from the start of the stable period
-
-    # trim_idx <- trim_stationary_starts(range_met_vector = bool_roll,
-    #                                  rolling_n = rolling_n,
-    #                                  depth_range_threshold = depth_range_threshold,
-    #                                  trim_n = trim_n)
-
-  # Update the stationary_flag to include trimming
-  # If the n_obs to be trimmed is less than the rolling window,
-  # shift the difference of obs to TRUE from the start_idx backwards
-  # if(trim_n < rolling_n){
-  #   is_stationary_flag[trim_idx] <- TRUE
-  #
-  #   #If there are more n_obs to be trimmed than the size of the rolling window,
-  #   # convert the difference to FALSE between start_idx:trim_n
-  # } else{
-  #   is_stationary_flag[trim_idx] <- FALSE
-  # }
-###########unused ends here###############
   # 5. --- Calculate stationary block duration --- ----
   stationary_block_id <- dplyr::consecutive_id(is_stationary_flag)
   df_out <- df |>
@@ -195,56 +176,56 @@ is_stationary <- function(df,
 
   # 6. --- Optional Plotting --- ----
   if(plot) {
-  # Line values at depths above the minimum stationary time
-  if('obs_depth' %in% names(df_out)){
-    stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status == 999])
-  } else {
-    stationary_depths <-
-      df_out |>
-      dplyr::filter(is_stationary_status == 999) |>
-      dplyr::group_by(stationary_block_id) |>
-      dplyr::summarise(depth = round(mean(!!depth_col, na.rm = TRUE), 1), .groups = "drop") |>
-      dplyr::pull(depth)
+    # Line values at depths above the minimum stationary time
+    if('obs_depth' %in% names(df_out)){
+      stationary_depths <- unique(df_out$obs_depth[df_out$is_stationary_status == 999])
+    } else {
+      stationary_depths <-
+        df_out |>
+        dplyr::filter(is_stationary_status == 999) |>
+        dplyr::group_by(stationary_block_id) |>
+        dplyr::summarise(depth = round(mean(!!depth_col, na.rm = TRUE), 1), .groups = "drop") |>
+        dplyr::pull(depth)
+    }
+    # Plotting as before
+    levels_list <- as.character(unique(df_out$is_stationary_status))
+    # fixed colors
+    mycolors <- c("0" = "red", "999" = "green")
+
+    # intermediate durations (exclude 0 and 999)
+    other_vals <- setdiff(levels_list, c("0", "999"))
+
+    if(length(other_vals) > 0){
+      # use Dark2 palette and interpolate if more colors are needed
+      base_pal <- RColorBrewer::brewer.pal(8, "Dark2")              # base palette
+      pal <- grDevices::colorRampPalette(base_pal)(length(other_vals))  # interpolate to needed length
+      mycolors <- c(mycolors, setNames(pal, other_vals))
+    }
+
+    p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = !!depth_col)) +
+      ggplot2::geom_line(alpha = 0.4) +
+      ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
+      ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +
+      ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
+      ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = y, linetype = label),
+                          data = data.frame(y = stationary_depths, label = "Stationary Depth"),
+                          col = 'black') +
+      ggplot2::scale_linetype_manual(name = "", values = c("Stationary Depth" = "dashed")) +
+      # ggplot2::theme_minimal()
+      cowplot::theme_cowplot()
+
+    p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
+      ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold, color = "Threshold", linetype = "Threshold")) +
+      ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
+      ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
+      ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
+      # ggplot2::theme_minimal()
+      cowplot::theme_cowplot()
+
+    print(patchwork::wrap_plots(p1, p2, ncol = 1))
   }
-  # Plotting as before
-  levels_list <- as.character(unique(df_out$is_stationary_status))
-  # fixed colors
-  mycolors <- c("0" = "red", "999" = "green")
-
-  # intermediate durations (exclude 0 and 999)
-  other_vals <- setdiff(levels_list, c("0", "999"))
-
-  if(length(other_vals) > 0){
-    # use Dark2 palette and interpolate if more colors are needed
-    base_pal <- RColorBrewer::brewer.pal(8, "Dark2")              # base palette
-    pal <- grDevices::colorRampPalette(base_pal)(length(other_vals))  # interpolate to needed length
-    mycolors <- c(mycolors, setNames(pal, other_vals))
-  }
-
-  p1 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = !!depth_col)) +
-    ggplot2::geom_line(alpha = 0.4) +
-    ggplot2::geom_point(ggplot2::aes(color = as.factor(is_stationary_status)), size = 1.2) +
-    ggplot2::scale_y_reverse(breaks = seq(0,ceiling(max(depth_vals, na.rm = TRUE)))) +
-    ggplot2::labs(title = "Sonde Depth (Colored by Stationary Flag)", y = "Depth (m)", x = "Observation Index") +
-    ggplot2::scale_color_manual(name = 'Seconds Stationary', values = mycolors) +
-    ggplot2::geom_hline(ggplot2::aes(yintercept = y, linetype = label),
-                        data = data.frame(y = stationary_depths, label = "Stationary Depth"),
-                        col = 'black') +
-    ggplot2::scale_linetype_manual(name = "", values = c("Stationary Depth" = "dashed")) +
-    # ggplot2::theme_minimal()
-    cowplot::theme_cowplot()
-
-  p2 <- ggplot2::ggplot(df_out, ggplot2::aes(x = seq_len(nrow(df_out)), y = roll_range)) +
-    ggplot2::geom_line(ggplot2::aes(color = "Rolling Range", linetype = "Rolling Range")) +
-    ggplot2::geom_hline(ggplot2::aes(yintercept = depth_range_threshold, color = "Threshold", linetype = "Threshold")) +
-    ggplot2::scale_color_manual(name = "", values = c("Rolling Range" = "red", "Threshold" = "black")) +
-    ggplot2::scale_linetype_manual(name = "", values = c("Rolling Range" = "solid", "Threshold" = "dashed")) +
-    ggplot2::labs(title = "Rolling Range", y = "Range (m)", x = "Observation Index") +
-    # ggplot2::theme_minimal()
-    cowplot::theme_cowplot()
-
-  print(patchwork::wrap_plots(p1, p2, ncol = 1))
-}
   # 7. --- Compile output Data --- ----
   #  7a.*** Compute stationary depths --- ----
   df_out <- df_out |>
@@ -276,7 +257,6 @@ is_stationary <- function(df,
 #               start_trim_secs = 10,
 #               stationary_secs = 45,
 #               plot = TRUE)
-
 
 
 

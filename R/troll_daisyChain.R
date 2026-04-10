@@ -16,7 +16,7 @@
 #
 # dat_stationary <- is_stationary(df = dat_rename,
 #                                 stationary_secs = 20,
-#                                 start_trim_secs = 5,
+#                                 # start_trim_secs = 5,
 #                                 depth_range_threshold = 0.05,
 #                                 drop_cols = TRUE,
 #                                 plot = TRUE)

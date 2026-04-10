@@ -175,7 +175,7 @@ TROLL_sensor_stable <- function(df,
     }
   }
   if(is.null(range_thresh)){
-    range_thresh <- stability_ranges$range_thresh[stability_ranges$param == value_name]
+    range_thresh <- stability_ranges$range[stability_ranges$param == value_name]
 
     # Error for missing default
     if(length(range_thresh) != 1){
@@ -292,9 +292,10 @@ TROLL_sensor_stable <- function(df,
     ) |>
     dplyr::group_split()
 
-  # Pre-allocate output object
+  # Pre-allocate output object and warnings collector
   out_list <- vector("list", length(dat_grouped))
 
+  slope_issues <- list()
   # >> Loop through each stationary block ----
   for (i in seq_along(dat_grouped)) {# seq_along gives list length as 1:length(list)
     # **** Extract one stationary group of data within a loop ----
@@ -354,6 +355,10 @@ TROLL_sensor_stable <- function(df,
 
     # create an index of the minimum tail to keep based on time
     valid_tail <- which((end_time - x_all) * 60 <= min_median_secs)
+
+    if(length(valid_tail) == 0){
+      next
+    }
     # Force contiguous tail if ever timestamps got messed up
     valid_tail <- seq.int(min(valid_tail), n)
 
@@ -410,16 +415,12 @@ TROLL_sensor_stable <- function(df,
     if(optical_param){
 
       if(!is.na(full_slope) && abs(full_slope) > slope_thresh){
-        slope_msg <- paste0('Across all stationary observations for ',
-                            value_name,
-                            '\n at: ',
-                            block_depth,
-                            'meters, the slope was: ',
-                            round(full_slope,3),
-                            ' units per minute.',
-                            '\n\n You may consider validating the data and/or applying additional trimming.')
 
-        warning(slope_msg)
+###########
+        slope_issues[[length(slope_issues) + 1]] <- list(
+          depth = block_depth,
+          slope = full_slope
+        )
       }
     }
   # 6. --- Flag "_stable" observations --- ----
@@ -441,7 +442,20 @@ TROLL_sensor_stable <- function(df,
     # 7. --- Assign output to object --- ----
     out_list[[i]] <- group_out
   } # >End of stationary block loop -----
+  # Slopes warning
+  if(length(slope_issues) > 0){
 
+    depths <- vapply(slope_issues, `[[`, numeric(1), "depth")
+    slopes <- vapply(slope_issues, `[[`, numeric(1), "slope")
+
+    msg <- paste0(
+      value_name, " slope exceeded threshold at:\n",
+      paste0("  ", round(depths, 2), " m (", round(slopes, 3), " units/min)", collapse = "\n"),
+      "\n\nConsider validating data or adjusting trimming."
+    )
+
+    warning(msg)
+  }
   # 6. --- Compile data output --- ----
   # Compile the group_out into a dataframe
   out <- dplyr::bind_rows(out_list)
@@ -477,7 +491,10 @@ TROLL_sensor_stable <- function(df,
 # Need to deal with y axis scaling when it blows up
 xx <-
   TROLL_sensor_stable(dat_stationary,
-                      value_col = chlorophyll_RFU,
-                      range_thresh = NULL, slope_thresh = 0.01,
+                      value_col = turbidity_NTU,
+                      range_thresh = NULL, slope_thresh = 0.5,
                       drop_cols = F,
                       plot = T)
+
+junk <- dat_stationary[dat_stationary$stationary_depth ==2.900370,]
+junk
