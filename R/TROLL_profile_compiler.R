@@ -1,6 +1,6 @@
 # Argument validation helper
 validate_args <- function(
-    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stbl_settle_secs,
     stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges # pass your defaults table
@@ -10,10 +10,10 @@ validate_args <- function(
   check_numeric(stn_depthrange, "stn_depthrange")
   check_numeric(stn_secs, "stn_secs")
   check_numeric(stn_rollwindow_secs, "stn_rollwindow_secs")
-  check_numeric(stn_startrim_secs, "stn_startrim_secs", allow_zero = TRUE)
+  check_numeric(stbl_settle_secs, "stbl_settle_secs", allow_zero = TRUE)
   check_numeric(stbl_min_secs, "stbl_min_secs")
 
-  if (stn_startrim_secs >= stn_secs) stop("`stn_startrim_secs` must be less than `stn_secs`.")
+  if (stbl_settle_secs >= stn_secs) stop("`stbl_settle_secs` must be less than `stn_secs`.")
   if (stn_rollwindow_secs > stn_secs) stop("`stn_rollwindow_secs` must be <= `stn_secs`.")
 
  if (stbl_min_secs > stn_secs)
@@ -36,7 +36,6 @@ validate_args <- function(
       stop("`stbl_range_thresholds` must have non-empty names.")
     if (any(is.na(stbl_range_thresholds))) stop("`stbl_range_thresholds` cannot contain NA.")
 
-    ###########################
     # Check for unknown params in stability_ranges
     unknown_params <- setdiff(names(stbl_range_thresholds), stability_ranges$param)
 
@@ -52,7 +51,6 @@ validate_args <- function(
       )
     }
   }
-    #########################
 }
 
 # Argument normalization / updating helper
@@ -84,7 +82,7 @@ normalize_args <- function(plot,
   if (!is.null(stbl_range_thresholds)) {
     update_tbl <- tibble::tibble(
       param = names(stbl_range_thresholds),
-      range_thresh = unname(stbl_range_thresholds)
+      range = unname(stbl_range_thresholds)
     ) |>
       dplyr::filter(param %in% ranges$param)
     if (nrow(update_tbl) > 0) ranges <- dplyr::rows_update(ranges, update_tbl, by = "param")
@@ -105,7 +103,7 @@ normalize_args <- function(plot,
 #' @param stn_secs Numeric. Minimum time (seconds) required for a stationary block
 #'   to be considered fully stationary (flagged by: \code{is_stationary_status = 999}).
 #' @param stn_rollwindow_secs Numeric. Window size (seconds) used to compute rolling range for stationary detection.
-#' @param stn_startrim_secs Numeric. Seconds to trim from the start of each stationary block.
+#' @param stbl_settle_secs Numeric. Seconds to trim from the start of each stationary block.
 #' @param stbl_min_secs Numeric. Minimum seconds used to calculate a summary
 #'   statistic if stability is not reached within a stationary period.
 #' @param stbl_range_thresholds Optional named numeric vector. Custom stability
@@ -179,8 +177,8 @@ TROLL_profile_compiler <- function(path,                                        
                                    stn_depthrange = 0.1,                         # Rolling range setting input to is_stationary()
                                    stn_secs = 45,                                # Time required after starttrim for is_stationary_status to be set to 999 (fully stationary)
                                    stn_rollwindow_secs = 10,                     # Size of the window used to calculate rolling range within is_stationary()
-                                   stn_startrim_secs = 4,                        # Number of seconds to be trimmed off the start of each stationary block
                                    # sensor_stable
+                                   stbl_settle_secs = 10,                         # Number of seconds to be trimmed off the start of each stationary block
                                    stbl_min_secs = 5,                            # Minimum time to be used to calculate summary stat if stability is not detected within a stationary block
                                    stbl_range_thresholds = NULL,                 # Optionally provide custom range thresholds for individual params to detect sensor stability
                                    # Optional controls
@@ -201,7 +199,7 @@ TROLL_profile_compiler <- function(path,                                        
   datetime_name <- rlang::as_name(datetime_col)
   # Validation helper
   validate_args(
-    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stbl_settle_secs,
     stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges
@@ -293,7 +291,6 @@ TROLL_profile_compiler <- function(path,                                        
                                   depth_range_threshold = stn_depthrange,
                                   stationary_secs = stn_secs,
                                   rolling_range_secs = stn_rollwindow_secs,
-                                  start_trim_secs = stn_startrim_secs,
                                   drop_cols = drop_cols,
                                   plot = plot["Stationary"])  # Control via named vector
 
@@ -322,9 +319,10 @@ TROLL_profile_compiler <- function(path,                                        
     # Add the flag column only to output
     out_list[[i]] <- TROLL_sensor_stable(
       df = dat_stationary,
+      settling_secs = stbl_settle_secs,
       value_col = !!param_i,
-      min_secs = stbl_min_secs,
-      range_thresh = ranges$range_thresh[ranges$param == params[i]]               # Set the rolling range threshold for individual params in the data
+      min_median_secs = stbl_min_secs,
+      range_thresh = ranges$range[ranges$param == params[i]]               # Set the rolling range threshold for individual params in the data
     ) |>
       dplyr::pull(flag_col)
 

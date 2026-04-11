@@ -11,7 +11,7 @@ TROLL_profile_compiler(
   stn_depthrange = 0.1,
   stn_secs = 45,
   stn_rollwindow_secs = 10,
-  stn_startrim_secs = 4,
+  stbl_settle_secs = 10,
   stbl_min_secs = 5,
   stbl_range_thresholds = NULL,
   summarize_data = TRUE,
@@ -34,7 +34,7 @@ to be considered fully stationary (flagged by: \code{is_stationary_status = 999}
 
 \item{stn_rollwindow_secs}{Numeric. Window size (seconds) used to compute rolling range for stationary detection.}
 
-\item{stn_startrim_secs}{Numeric. Seconds to trim from the start of each stationary block.}
+\item{stbl_settle_secs}{Numeric. Seconds to trim from the start of each stationary block.}
 
 \item{stbl_min_secs}{Numeric. Minimum seconds used to calculate a summary
 statistic if stability is not reached within a stationary period.}
