@@ -15,7 +15,7 @@
 # dplyr::glimpse(dat_rename)
 #
 # dat_stationary <- is_stationary(df = dat_rename,
-#                                 stationary_secs = 20,
+#                                 stationary_secs = 24,
 #                                 # start_trim_secs = 5,
 #                                 depth_range_threshold = 0.05,
 #                                 drop_cols = TRUE,
@@ -24,7 +24,7 @@
 #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
 #                                   value_col = bga_fluorescence_RFU,
-#                                   min_secs = 1,
+#                                   # min_secs = 1,
 #                                   plot = TRUE)
 # dplyr::glimpse(dat_stable)
 #

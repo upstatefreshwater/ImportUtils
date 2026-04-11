@@ -167,13 +167,14 @@ TROLL_sensor_stable <- function(df,
   optical_param <- is_optical(value_name)
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
   if(is.null(slope_thresh)){
-    slope_thresh <- stability_ranges$slope_thresh[stability_ranges$param == value_name]
+    slope_thresh <- stability_ranges$slope[stability_ranges$param == value_name]
 
     # Error for missing default
     if(length(slope_thresh) != 1){
       stop(paste0("No slope threshold found for ", value_name))
     }
   }
+
   if(is.null(range_thresh)){
     range_thresh <- stability_ranges$range[stability_ranges$param == value_name]
 
@@ -181,6 +182,9 @@ TROLL_sensor_stable <- function(df,
     if(length(range_thresh) != 1){
       stop(paste0("No range threshold found for ", value_name))
     }
+
+    # If the default is way too big, make it smaller so plotting works
+    range_thresh <- min(range_thresh,max(df[[value_col]]) * 0.8)
   }
   # 1. --- Input/Validation checks --- ----
 
@@ -488,13 +492,13 @@ TROLL_sensor_stable <- function(df,
 
 
 
-# Need to deal with y axis scaling when it blows up
-xx <-
-  TROLL_sensor_stable(dat_stationary,
-                      value_col = turbidity_NTU,
-                      range_thresh = NULL, slope_thresh = 0.5,
-                      drop_cols = F,
-                      plot = T)
-
-junk <- dat_stationary[dat_stationary$stationary_depth ==2.900370,]
-junk
+# # Need to deal with y axis scaling when it blows up
+# xx <-
+#   TROLL_sensor_stable(dat_stationary,
+#                       value_col = turbidity_NTU,
+#                       range_thresh = NULL, slope_thresh = 0.5,
+#                       drop_cols = F,
+#                       plot = T)
+#
+# junk <- dat_stationary[dat_stationary$stationary_depth ==2.900370,]
+# junk

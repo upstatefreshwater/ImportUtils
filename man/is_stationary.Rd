@@ -11,13 +11,12 @@ is_stationary(
   depth_range_threshold = 0.05,
   stationary_secs = 60,
   rolling_range_secs = 10,
-  start_trim_secs = 15,
   drop_cols = TRUE,
   plot = FALSE
 )
 }
 \arguments{
-\item{df}{A data frame containing depth and datetime observations.}
+\item{df}{A data frame containing depth and datetime observations. Optionally, a path may be passed to the location of a raw TROLL CSV file, in which case `TROLL_read_data()` and `TROLL_rename_cols()` will be run with default setting to create `df`..}
 
 \item{depth_col}{Column in `df` representing depth measurements (numeric). Default is `depth_m`.}
 
@@ -29,11 +28,11 @@ is_stationary(
 
 \item{rolling_range_secs}{Numeric. Window size in seconds used to calculate rolling depth range. Default is `10`.}
 
-\item{start_trim_secs}{Numeric. Number of seconds to trim from the start of stationary blocks to remove initial jumps. Default is `15`.}
-
 \item{drop_cols}{Logical. If TRUE, intermediate columns used for computation are removed from the output. Default is `TRUE`.}
 
 \item{plot}{Logical. If TRUE, produces plots showing depth and rolling range with stationary periods highlighted. Default is `FALSE`.}
+
+\item{start_trim_secs}{Numeric. Number of seconds to trim from the start of stationary blocks to remove initial jumps. Default is `15`.}
 }
 \value{
 A data frame identical to `df` but with additional columns (provided `drop_cols` is \code{TRUE}:

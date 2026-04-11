@@ -7,9 +7,10 @@
 TROLL_sensor_stable(
   df,
   value_col = pH_units,
-  min_secs = 5,
-  slope_thresh = 0.05,
-  range_thresh = 0.02,
+  min_median_secs = 4,
+  slope_thresh = NULL,
+  range_thresh = NULL,
+  settling_secs = 10,
   drop_cols = TRUE,
   verbose = FALSE,
   plot = FALSE
@@ -21,7 +22,7 @@ TROLL_sensor_stable(
 \item{value_col}{Unquoted name of the sensor column to evaluate for stability
 (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).}
 
-\item{min_secs}{Minimum duration (seconds) of observations required to compute
+\item{min_median_secs}{Minimum duration (seconds) of observations required to compute
 stability statistics. This value is converted internally to the minimum
 number of observations required in a stationary block. Default is \code{5}.}
 
@@ -60,10 +61,10 @@ and then dropping one observation at a time, until `slope_thresh` and `range_thr
 are both met. If both metrics fall within the specified thresholds,
 the observation and all subsequent rows in that block are flagged as stable.
 
-A minimum duration of data can be enforced using \code{min_secs}, which is
+A minimum duration of data can be enforced using \code{min_median_secs}, which is
 converted internally to a minimum number of observations based on the sampling
 interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
-will be flagged as `<data_column_name>_stable` for only the `min_secs` before
+will be flagged as `<data_column_name>_stable` for only the `min_median_secs` before
 the sonde is in motion again.
 
 This function requires that stationary blocks have already been identified
@@ -94,7 +95,7 @@ dat <- is_stationary(sensor_data)
 dat <- TROLL_sensor_stable(
   df = dat,
   value_col = pH_units,
-  min_secs = 5,
+  min_median_secs = 5,
   slope_thresh = 0.05,
   range_thresh = 0.02
 )
