@@ -43,18 +43,18 @@ TROLL_stable_summary <- function(df,
 
   df |>
     dplyr::ungroup() |>
-    dplyr::filter(is_stationary_status == 999) |>
+    # dplyr::filter(is_stationary_status == 999) |> # Commented out because this is a redundant filter
     dplyr::group_by(!!group_col) |>
     dplyr::summarise(
       dplyr::across(
         dplyr::all_of(value_cols),
         ~{
           flag_col <- paste0(dplyr::cur_column(), "_stable")
-          flag_idx <- dplyr::cur_data()[[flag_col]]
+          flag_idx <- .data[[flag_col]]
           vals <- .x[flag_idx]
           if (length(vals) == 0) NA_real_ else summary_fn(vals, na.rm = TRUE)
         },
-        .names = "{.col}_stable"
+        .names = "{.col}_median"
       ),
       .groups = "drop"
     )
