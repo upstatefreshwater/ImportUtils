@@ -327,11 +327,10 @@ TROLL_profile_compiler <- function(path,                                        
 
     out_list[[i]] <- stable_i |>
       dplyr::pull(flag_col)
-
-    # Overwrite is_stationary_status to add settling trimming flag (888)
-    dat_stationary$is_stationary_status <- stable_i$is_stationary_status
-
   }
+
+  # Overwrite is_stationary_status to add settling trimming flag (888)
+  dat_stationary$is_stationary_status <- stable_i$is_stationary_status
 
   # locate each flag column next to the sensor data column its associated with
   out <- dplyr::bind_cols(out_list)
@@ -371,48 +370,125 @@ TROLL_profile_compiler <- function(path,                                        
   if(plot["Final"] && summarize_data){
     for (i in params) {
 
-      plot_df <- out|>
+      # plot_df <- out|>
+      #   dplyr::mutate(
+      #     plot_status = dplyr::case_when(
+      #       is_stationary_status == 999 ~ "Sonde Stationary",
+      #       .data[[paste0(i, "_stable")]] %in% TRUE ~ "Sensor Stable",
+      #       is_stationary_status == 888 ~ "Trimmed: settling",
+      #       TRUE ~ "Sonde Moving"
+      #     )
+      #   )
+
+      # plot_df <- out |>
+      #   dplyr::mutate(
+      #     stable_flag = .data[[paste0(i, "_stable")]] %in% TRUE,
+      #     plot_status = dplyr::case_when(
+      #       stable_flag ~ "Sensor Stable",
+      #       is_stationary_status == 888 ~ "Trimmed: settling",
+      #       is_stationary_status == 999 ~ "Sonde Stationary",
+      #       TRUE ~ "Sonde Moving"
+      #     ),
+      #     plot_status = factor(
+      #       plot_status,
+      #       levels = c("Sonde Moving", "Sonde Stationary", "Trimmed: settling", "Sensor Stable")
+      #     )
+      #   )
+      plot_df <- out |>
         dplyr::mutate(
+          value = .data[[i]],
+          stable_flag = .data[[paste0(i, "_stable")]] %in% TRUE,
           plot_status = dplyr::case_when(
-            is_stationary_status == 999 ~ "Sonde Stationary",
-            .data[[paste0(i, "_stable")]] %in% TRUE ~ "Sensor Stable",
+            stable_flag ~ "Sensor Stable",
             is_stationary_status == 888 ~ "Trimmed: settling",
+            is_stationary_status == 999 ~ "Sonde Stationary",
             TRUE ~ "Sonde Moving"
+          ),
+          plot_status = factor(
+            plot_status,
+            levels = c("Sonde Moving", "Sonde Stationary", "Trimmed: settling", "Sensor Stable")
           )
         )
+
+      # return(plot_df)
 
       flag_data_column <- rlang::sym(i)
       depth_column_sym <- rlang::sym(depth_name)
       summary_column <- rlang::sym(paste0(i,'_median'))
 
       print(
-        ggplot2::ggplot() +
-          ggplot2::geom_path(data = plot_df,
-                             ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'All Data')) +
-          ggplot2::geom_point(data = plot_dat,
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = plot_status)) +
-          # ggplot2::geom_point(data = out,
-          #                     ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          # ggplot2::geom_path(data = out,
-          #                    ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status < 999),
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
-          ggplot2::geom_point(data = stable_summary,
-                              ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
-                              pch = 17, cex = 3) +
+      #   ggplot2::ggplot() +
+      #     ggplot2::geom_path(data = plot_df,
+      #                        ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'All Data')) +
+      #     ggplot2::geom_point(data = plot_df,
+      #                         ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = plot_status)) +
+      #     # ggplot2::geom_point(data = out,
+      #     #                     ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
+      #     # ggplot2::geom_path(data = out,
+      #     #                    ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
+      #     ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status < 999),
+      #                         ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
+      #     ggplot2::geom_point(data = stable_summary,
+      #                         ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
+      #                         pch = 17, cex = 3) +
+      #     ggplot2::scale_y_reverse() +
+      #     ggplot2::scale_x_continuous(position = 'top') +
+      #     ggplot2::labs(y = 'Depth (m)') +
+      #     ggplot2::scale_color_manual(name = '',
+      #                                 # values = c('All Data' = 'grey80',
+      #                                 #            'Sonde Moving' = 'firebrick1',
+      #                                 #            'Sonde Stationary' = 'firebrick4',
+      #                                 #            'Trimmed: settling' = 'goldenrod2',
+      #                                 #            'Sensor Stable' = 'forestgreen',
+      #                                 #            'Final' = 'dodgerblue')) +
+      #                                 values = c('All Data' = 'grey80',
+      #                                            'Sonde Moving' = 'firebrick1',
+      #                                            'Sonde Stationary' = 'firebrick4',
+      #                                            'Trimmed: settling' = 'goldenrod2',
+      #                                            'Sensor Stable' = 'dodgerblue3',
+      #                                            'Final' = 'dodgerblue')) +
+      #                                 # breaks = c('All Data',
+      #                                 #            'Sonde Moving',
+      #                                 #            'Sonde Stationary',
+      #                                 #            'Trimmed: settling',
+      #                                 #            'Sensor Stable',
+      #                                 #            'Final'),
+      #                                 # drop = FALSE) +
+      #     cowplot::theme_cowplot()
+      # )
+        ggplot2::ggplot(plot_df) +
+          ggplot2::geom_path(
+            ggplot2::aes(x = value, y = .data[[depth_name]], group = 1, color = "All Data")
+          ) +
+          ggplot2::geom_point(
+            data = dplyr::filter(plot_df, is_stationary_status < 999),
+            ggplot2::aes(x = value, y = .data[[depth_name]], color = "Sonde Moving")
+          ) +
+          ggplot2::geom_point(
+            ggplot2::aes(x = value, y = .data[[depth_name]], color = plot_status)
+          ) +
+          ggplot2::geom_point(
+            data = stable_summary,
+            ggplot2::aes(x = .data[[paste0(i, "_median")]], y = stationary_depth, color = "Final"),
+            shape = 17, size = 3
+          ) +
           ggplot2::scale_y_reverse() +
-          ggplot2::scale_x_continuous(position = 'top') +
-          ggplot2::labs(y = 'Depth (m)') +
-          ggplot2::scale_color_manual(name = '',
-                                      values = c('All Data' = 'grey80',
-                                                 'Sonde Moving' = 'firebrick1',
-                                                 'Sonde Stationary' = 'firebrick4',
-                                                 'Trimmed: settling' = 'goldenrod2',
-                                                 'Sensor Stable' = 'forestgreen',
-                                                 'Final' = 'dodgerblue')) +
+          ggplot2::scale_x_continuous(position = "top") +
+          ggplot2::labs(y = "Depth (m)",
+                        x = i) +
+          ggplot2::scale_color_manual(
+            name = "",
+            values = c(
+              "All Data" = "grey80",
+              "Sonde Moving" = "firebrick1",
+              "Sonde Stationary" = "firebrick4",
+              "Trimmed: settling" = "goldenrod2",
+              "Sensor Stable" = "dodgerblue3",
+              "Final" = "dodgerblue"
+            )
+          ) +
           cowplot::theme_cowplot()
       )
-
     }
   }
   # . --- Return Final Data --- ----
