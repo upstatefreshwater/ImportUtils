@@ -23,7 +23,7 @@ validate_args <- function(
   check_logical(summarize_data, "summarize_data")
   check_logical(drop_cols, "drop_cols")
 
-  # --- Plot checks ---
+  # --- Plot checks (single logical applies to both in normalization helper below) ---
   if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
   if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
     stop("`plot` names must be 'Final' and/or 'Stationary'.")
@@ -317,14 +317,19 @@ TROLL_profile_compiler <- function(path,                                        
     flag_col <- paste0(params[i], "_stable")
 
     # Add the flag column only to output
-    out_list[[i]] <- TROLL_sensor_stable(
+    stable_i <- TROLL_sensor_stable(
       df = dat_stationary,
       settling_secs = stbl_settle_secs,
       value_col = !!param_i,
       min_median_secs = stbl_min_secs,
-      range_thresh = ranges$range[ranges$param == params[i]]               # Set the rolling range threshold for individual params in the data
-    ) |>
+      range_thresh = ranges$range[ranges$param == params[i]]    # Set the rolling range threshold for individual params in the data (ranges object was updated if user input provided)
+    )
+
+    out_list[[i]] <- stable_i |>
       dplyr::pull(flag_col)
+
+    # Overwrite is_stationary_status to add settling trimming flag (888)
+    dat_stationary$is_stationary_status <- stable_i$is_stationary_status
 
   }
 
@@ -362,19 +367,34 @@ TROLL_profile_compiler <- function(path,                                        
   if(plot["Final"] & !summarize_data){
     stop('\nCannot plot summary data when `summarize_data` is FALSE.')
   }
+
   if(plot["Final"] && summarize_data){
     for (i in params) {
 
+      plot_df <- out|>
+        dplyr::mutate(
+          plot_status = dplyr::case_when(
+            is_stationary_status == 999 ~ "Sonde Stationary",
+            .data[[paste0(i, "_stable")]] %in% TRUE ~ "Sensor Stable",
+            is_stationary_status == 888 ~ "Trimmed: settling",
+            TRUE ~ "Sonde Moving"
+          )
+        )
+
       flag_data_column <- rlang::sym(i)
       depth_column_sym <- rlang::sym(depth_name)
-      summary_column <- rlang::sym(paste0(i,'_stable'))
+      summary_column <- rlang::sym(paste0(i,'_median'))
 
       print(
         ggplot2::ggplot() +
-          ggplot2::geom_point(data = out,
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          ggplot2::geom_path(data = out,
-                             ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
+          ggplot2::geom_path(data = plot_df,
+                             ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'All Data')) +
+          ggplot2::geom_point(data = plot_dat,
+                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = plot_status)) +
+          # ggplot2::geom_point(data = out,
+          #                     ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
+          # ggplot2::geom_path(data = out,
+          #                    ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
           ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status < 999),
                               ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
           ggplot2::geom_point(data = stable_summary,
@@ -384,9 +404,12 @@ TROLL_profile_compiler <- function(path,                                        
           ggplot2::scale_x_continuous(position = 'top') +
           ggplot2::labs(y = 'Depth (m)') +
           ggplot2::scale_color_manual(name = '',
-                                      values = c('Raw Data' = 'firebrick4',
-                                                 'Final' = 'dodgerblue',
-                                                 'Sonde Moving' = 'firebrick1')) +
+                                      values = c('All Data' = 'grey80',
+                                                 'Sonde Moving' = 'firebrick1',
+                                                 'Sonde Stationary' = 'firebrick4',
+                                                 'Trimmed: settling' = 'goldenrod2',
+                                                 'Sensor Stable' = 'forestgreen',
+                                                 'Final' = 'dodgerblue')) +
           cowplot::theme_cowplot()
       )
 

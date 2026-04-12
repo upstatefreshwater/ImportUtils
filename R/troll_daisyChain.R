@@ -23,7 +23,7 @@
 # # dplyr::glimpse(dat_stationary)
 # #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
-#                                   value_col = chlorophyll_RFU,
+#                                   value_col = sp_conductivity_uScm,
 #                                   # min_secs = 1,
 #                                   plot = TRUE)
 # # dplyr::glimpse(dat_stable)
