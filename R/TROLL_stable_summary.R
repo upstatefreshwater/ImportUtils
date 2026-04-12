@@ -43,7 +43,7 @@ TROLL_stable_summary <- function(df,
 
   df |>
     dplyr::ungroup() |>
-    # dplyr::filter(is_stationary_status == 999) |> # Commented out because this is a redundant filter
+    dplyr::filter(is_stationary_status == 999) |> # Commented out because this is a redundant filter
     dplyr::group_by(!!group_col) |>
     dplyr::summarise(
       dplyr::across(
