@@ -319,12 +319,13 @@ TROLL_profile_compiler <- function(path,                                        
     # Add the flag column only to output
     stable_i <- TROLL_sensor_stable(
       df = dat_stationary,
-      settling_secs = stbl_settle_secs,
       value_col = !!param_i,
+      settling_secs = stbl_settle_secs,
       min_median_secs = stbl_min_secs,
       drop_cols = drop_cols,
-      range_thresh = ranges$range[ranges$param == params[i]]    # Set the rolling range threshold for individual params in the data (ranges object was updated if user input provided)
-    )
+      range_thresh = ranges$range[ranges$param == params[i]],    # Set the rolling range threshold for individual params in the data (ranges object was updated if user input provided)
+      slope_thresh = NULL                                        # Use default values
+      )
 
     out_list[[i]] <- stable_i |>
       dplyr::pull(flag_col)

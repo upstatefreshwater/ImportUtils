@@ -3,8 +3,8 @@
 # # 'inst/extdata/2025-05-27_LT1.csv'
 # # 'inst/extdata/2025-09-16_LT1.csv'
 # # 2025-10-01_LW1
-#   'inst/extdata/2025-10-07_QL1.csv'
-#   # 'inst/extdata/TROLL_exdata.csv'
+#   # 'inst/extdata/2025-10-07_QL1.csv'
+#   'inst/extdata/TROLL_exdata.csv'
 #
 # dat_read <- TROLL_read_data(path)
 # # dplyr::glimpse(dat_read)
@@ -39,7 +39,7 @@
 #                        stbl_settle_secs = 10,
 #                        stbl_min_secs = 4,
 #                        drop_cols = TRUE,
-#                        datetime_col = DateTime,
+#                        datetimae_col = DateTime,
 #                        plot = TRUE
 #                        )
 #

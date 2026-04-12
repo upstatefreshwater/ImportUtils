@@ -17,6 +17,57 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(ImportUtils)
 ```
+## TLDR
+
+Here is a script that walks you through the process from raw CSV formatted AquaTroll water column 
+profie data, through summarized output. In a perfect world you can use only this for summarizing 
+raw data.  
+
+```{r, include=TRUE, echo=TRUE,fig.align='center', fig.width=6, fig.height=4, warning=FALSE, out.width="70%"}
+# devtools::install_github('upstatefreshwater/ImportUtils', build_vignettes = TRUE)
+library(ImportUtils)
+
+## Step 1: Data tidying 
+## **NOTE**: you can skip this step by passing a path directly to `is_stationary()`
+  # Read in raw data (this step removes header metadata rows)
+  # Here we use the built-in example data, simply replace with the path to your raw data
+  path_to_raw <- system.file("extdata", "TROLL_exdata.csv", package = "ImportUtils")
+  data_read <- TROLL_read_data(path = path_to_raw)
+  
+  # The next step is to standardize column names into their canonical form used by all other functions in the package
+  
+  data_rename <-  TROLL_rename_cols(df = data_read)
+  # troll_column_dictionary$canonical # uncomment to view the current list of canonical column names
+
+## Step 2: Flag blocks of data where sonde was stationary for a minimum amount of time
+  data_stationary <- is_stationary(df = data_rename,
+                                   depth_range_threshold = 0.05,
+                                   stationary_secs = 46,  # This is the primary tuning parameter to adjust if target depths are omittied
+                                   plot = TRUE)           # Visualization while tuning is key
+  # **NOTE** from the plot that we need to adjust `stationary_secs` to 24 to extract all relevant depths
+  
+## Step 3: Compile stable cast data
+  data_summarized <- TROLL_profile_compiler(path = path_to_raw,
+                                            stn_depthrange = 0.05,
+                                            stn_secs = 24,         # Pulled from our tuning of is_stationary
+                                            stbl_settle_secs = 10, # Amount of time to trim off the start of each stationary period
+                                            stbl_min_secs = 4,     # If no stability detected, the minimum time to use for median calculation
+                                            plot = FALSE)
+```
+```{r, include=TRUE, echo=FALSE, out.width="70%",fig.align='center'}
+  knitr::include_graphics("Figures/ex_profile_bga.png")
+
+```
+**Figure 1**: Example of diagnostic plot created by `TROLL_profile_compiler`. A similar plot 
+is shown for every parameter when the compiler is run with optional plotting ON. 
+
+By reviewing the plots, the user can decide if the resulting final output (blue triangles)
+is an accurate representation of the raw data. Tuning of specific stability detection arguments
+(`range_thresh`, `slope_thresh`) to modify stable data extraction can be explored outside of the 
+compiler function, with updates passed to the compiler via `stbl_range_thresholds`, but that's a bit
+to complex for a TLDR!
+
+
 ## Overview
 
 The AquaTROLL utility functions in `ImportUtils` provide tools for processing electronic 
@@ -26,12 +77,12 @@ which wraps the functionality of the supporting functions into a single interfac
 Each component function used within `TROLL_profile_compiler()` is also exported individually. 
 This allows users to inspect intermediate steps, troubleshoot issues, and better understand 
 how the data are transformed throughout the workflow.The workflow is:
-
-    1) Read Raw Data (`TROLL_read_data()`)
-    2) Standardize column names and required data (`TROLL_rename_cols()`)
-    3) Detect and flag stationary periods in sonde data (`is_stationary()`)
-    4) Detect and flag stable data by sensor type (`TROLL_sensor_stable()`)
-    5) Summarize stationary + stable data (`TROLL_summary_stable()`)
+  
+  1) Read Raw Data (`TROLL_read_data()`)
+2) Standardize column names and required data (`TROLL_rename_cols()`)
+3) Detect and flag stationary periods in sonde data (`is_stationary()`)
+4) Detect and flag stable data by sensor type (`TROLL_sensor_stable()`)
+5) Summarize stationary + stable data (`TROLL_summary_stable()`)
 
 These functions assume that raw VuSitu `.html` files have already been converted to `.csv` format. 
 This vignette walks through a complete example workflow using the individual functions, followed 
@@ -54,7 +105,7 @@ path <- system.file(
   package = "ImportUtils"
 )
 dat_read <- TROLL_read_data(path )
-dplyr::glimpse(dat_read)
+# dplyr::glimpse(dat_read)
 ```
 
 
@@ -71,7 +122,7 @@ dat_rename <- TROLL_rename_cols(
   df = dat_read,
   colname_dictionary = troll_column_dictionary
 )
-dplyr::glimpse(dat_rename)
+# dplyr::glimpse(dat_rename)
 ```
 Column renaming is achieved by pattern matching. If unknown columns are detected *an error* will be displayed and 
 the dictionary should be updated if these columns represent new sensor data. It is possible to work around missing 
@@ -114,9 +165,9 @@ TROLL_rename_cols(
   trollcomm_serials = c(1151975, 1153542) # Add additional serial #'s here
 )
 ```
- Metadata columns (e.g. "latitude", "longitude", "battery" etc.) are removed by default, but can be retained by toggling
+Metadata columns (e.g. "latitude", "longitude", "battery" etc.) are removed by default, but can be retained by toggling
 `strip_metadata` == FALSE. The inclusive list of metadata columns are defined within the column dictionary:
-
+  
 ```{r,echo=TRUE,include=TRUE}
 troll_column_dictionary[troll_column_dictionary$meta,]
 
@@ -151,25 +202,23 @@ dat_stationary <- is_stationary(
   depth_range_threshold = 0.05,
   stationary_secs = 60,
   rolling_range_secs = 10,
-  start_trim_secs = 15,
   drop_cols = TRUE,
   plot = FALSE
 )
 
-dplyr::glimpse(dat_stationary)
+# dplyr::glimpse(dat_stationary)
 ```
 
 **NOTE** The "Warning: Inconsistent sampling intervals..." is created by an internal helper that extracts sampling interval from 
 the DateTime column. What it's telling you is that there are inconsistent temporal "jumps" in the data, usually caused by the Troll-Comm 
 glitching. This is only an issue if the "Dominant interval" is not detected as what it should be (2 seconds in this example is correct).
 
-There are 4 critical inputs for tuning the function:
+There are 3 critical inputs for tuning the function:
 
     1) `depth_range_threshold`: the allowable rolling range that triggers the right-most observation
     of the rolling window to be flagged as stationary.
     2) `stationary_secs`: the minimum time required for a stationary block to be flagged with `is_stationary_status` == 999.
     3) `rolling_range_secs`: sets the rolling range window size. 
-    4) `start_trim_secs`: amount of time to force non-stationary flagging at start of stationary blocks. Defaults to 1 observation if set to 0. 
 
 `is_stationary_status` is critical for tuning. 
     - The `999` flag indicates that the stationary block was longer than `stationary_secs`.
@@ -183,7 +232,6 @@ dat_stationary <- is_stationary(
   depth_range_threshold = 0.05,
   stationary_secs = 45,    # Relatively long required stationary period
   rolling_range_secs = 10,
-  start_trim_secs = 15,    # Relatively long trimming period
   plot = TRUE # Toggle optional plotting
 )
 ```
@@ -200,7 +248,6 @@ dat_stationary <- is_stationary(
   depth_range_threshold = 0.05,
   stationary_secs = 20, # reduce required stationary time
   rolling_range_secs = 10,
-  start_trim_secs = 5,  # reduce trimming
   plot = TRUE # Toggle optional plotting
 )
 ```
@@ -227,7 +274,8 @@ For an individual parameter:
 dat_stable <- TROLL_sensor_stable(
   df = dat_stationary,
   value_col = pH_units,
-  min_secs = 5,
+  settling_secs = 10,
+  min_median_secs = 5,
   slope_thresh = 0.05,
   range_thresh = 0.02,
   drop_cols = TRUE,
@@ -289,11 +337,11 @@ dat_final <- TROLL_profile_compiler(
   path = path,
   depth_col = depth_m,
   datetime_col = DateTime,
-  stn_depthrange = 0.1,
-  stn_secs = 20,                                  # Note use of value from tuning above
+  stn_depthrange = 0.05,
+  stn_secs = 24,                                  # Note use of value from tuning above
   stn_rollwindow_secs = 10,
-  stn_startrim_secs = 15,                          # Note use of value from tuning above
   stbl_min_secs = 5,
+  stbl_settle_secs = 10,
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
   drop_cols = TRUE,
@@ -322,8 +370,8 @@ dat_final <- TROLL_profile_compiler(
   stn_depthrange = 0.1,
   stn_secs = 20,                                  # Note use of value from tuning above
   stn_rollwindow_secs = 10,
-  stn_startrim_secs = 15,                          # Note use of value from tuning above
   stbl_min_secs = 5,
+  stbl_settle_secs = 10,
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
   drop_cols = TRUE,
