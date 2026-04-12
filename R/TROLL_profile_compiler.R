@@ -322,6 +322,7 @@ TROLL_profile_compiler <- function(path,                                        
       settling_secs = stbl_settle_secs,
       value_col = !!param_i,
       min_median_secs = stbl_min_secs,
+      drop_cols = drop_cols,
       range_thresh = ranges$range[ranges$param == params[i]]    # Set the rolling range threshold for individual params in the data (ranges object was updated if user input provided)
     )
 
