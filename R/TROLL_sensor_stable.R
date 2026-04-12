@@ -2,53 +2,70 @@ plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
                            range_thresh){
+  # plt_df <- tibble::tibble(
+  #   DateTime = df$DateTime,
+  #   !!value_col_sym := df[[rlang::as_name(value_col_sym)]],
+  #   !!rlang::sym(value_flag_col) := df[[value_flag_col]],
+  #   is_stationary_status = df$is_stationary_status
+  # )
 
-  # value_col <- rlang::ensym(value_col)
-  # value_name <- rlang::as_name(value_col)
-  # value_flag_col <- paste0(value_name,"_stable")
-  value_flag_sym <- rlang::sym(value_flag_col)
+  # Standardize data for plotting
+  plt_df <- tibble::tibble(
+    DateTime = df$DateTime,
+    value = df[[rlang::as_name(value_col_sym)]],
+    stable = df[[value_flag_col]],
+    is_stationary_status = df$is_stationary_status
+  )
 
-  rangelines <- stats::median(df[[rlang::as_name(value_col_sym)]],na.rm = TRUE)
+  plt_df <- plt_df |>
+    dplyr::mutate(
+      state = dplyr::case_when(
+        is_stationary_status == 888 ~ "Trimmed (Settling)",
+        is_stationary_status == 999 & stable ~ "Stable Stationary",
+        is_stationary_status == 999 & !stable ~ "Unstable Stationary",
+        TRUE ~ "Sonde Moving"
+      )
+    )
+
+  # value_flag_sym <- rlang::sym(value_flag_col)
+
+  # Starter to place a horizontal line for visualizing range threshold on the plot at the median so one line at least always shows up within the plot window
+  rangelines <- stats::median(plt_df$value ,na.rm = TRUE)
+  rangelines <- c(rangelines - 0.5*range_thresh,
+                  rangelines + 0.5*range_thresh)
+
   p1 <-
-    ggplot2::ggplot(df, ggplot2::aes(DateTime, !!value_col_sym)) +
-
-    # all data as background
-    ggplot2::geom_point(ggplot2::aes(color = "Sonde Moving"), size = 1) +
-    # Add line to make viewing noisy data easier
-    ggplot2::geom_line(ggplot2::aes(color = "Sonde Moving")) +
-    # stationary periods
-    ggplot2::geom_point(
-      data = dplyr::filter(df, is_stationary_status == 999),
-      ggplot2::aes(color = "Stable Stationary"),
-      size = 1.5,
-      pch = 19
-    ) +
-
-    # unstable pH during stationary periods
-    ggplot2::geom_point(
-      data = dplyr::filter(df,
-                           is_stationary_status == 999,
-                           !!value_flag_sym %in% FALSE),
-      ggplot2::aes(color = "Unstable Stationary"),
-      size = 1.5,
-      pch = 19
-    ) +
-
+    #############
+  ggplot2::ggplot(plt_df, ggplot2::aes(DateTime, value, color = state)) +
+    ggplot2::geom_line(color = "grey70", linewidth = 0.4) + # Decouple from grouping so line goes through all data
+    ggplot2::geom_point(size = 1.25) +
     ggplot2::scale_color_manual(
       name = "",
       values = c(
-        "Sonde Moving" = "grey80",
-        "Stable Stationary" = "dodgerblue3",
+        "Sonde Moving" = "grey70",
+        "Stable Stationary" = "#440154FF",# "dodgerblue3",
+        "Trimmed (Settling)" = "#FDE725FF",
         "Unstable Stationary" = "firebrick1"
       )
     ) +
 
     # Add a lines representing the range threshold
-    ggplot2::geom_hline(yintercept = c(rangelines,rangelines + range_thresh)) +
+    ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[1], linetype = 'Range Threshold'),
+                        color = 'gray30') +
+    ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[2], linetype = 'Range Threshold'),
+                        color = 'gray30') +
+    ggplot2::scale_linetype_manual(name = NULL,
+                                   values = 2) +
+    # Add titles
+    ggplot2::labs(x = 'Time of Day',
+                  y = rlang::as_name(value_col_sym)) +
 
     ggplot2::theme_bw() +
-    ggplot2::theme(legend.position = "right")
-
+    ggplot2::theme(legend.position = "right",
+                   legend.box = "vertical",          # Ensures legends are stacked vertically
+                   legend.background = ggplot2::element_blank(),
+                   legend.spacing.y = ggplot2::unit(-1, "cm") # Use a negative value to pull them closer
+    )
   print(p1)
 }
 
@@ -263,7 +280,7 @@ TROLL_sensor_stable <- function(df,
 
   # Check for enough time in every stationary block to accommodate min_median_secs
   block_durations <- df |>
-    dplyr::filter(is_stationary_status == 999) |>
+    dplyr::filter(is_stationary_status == 999) |> # Only use fully stationary (post-settling) data for stability calculations
     dplyr::group_by(stationary_block_id) |>
     dplyr::summarise(
       duration = as.numeric(max(DateTime) - min(DateTime), units = "secs")
