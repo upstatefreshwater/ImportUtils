@@ -416,7 +416,7 @@ TROLL_profile_compiler <- function(path,                                        
 
       flag_data_column <- rlang::sym(i)
       depth_column_sym <- rlang::sym(depth_name)
-      summary_column <- rlang::sym(paste0(i,'_median'))
+      summary_column <- rlang::sym(i)
 
       print(
       #   ggplot2::ggplot() +
@@ -471,7 +471,7 @@ TROLL_profile_compiler <- function(path,                                        
           ) +
           ggplot2::geom_point(
             data = stable_summary,
-            ggplot2::aes(x = .data[[paste0(i, "_median")]], y = stationary_depth, color = "Final"),
+            ggplot2::aes(x = .data[[i]], y = stationary_depth, color = "Final"),
             shape = 17, size = 3
           ) +
           ggplot2::scale_y_reverse() +
