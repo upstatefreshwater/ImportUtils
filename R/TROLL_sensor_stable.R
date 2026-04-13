@@ -1,3 +1,45 @@
+#' Plot Sensor Stability Diagnostics
+#'
+#' Generates a time series plot of a single sensor parameter, highlighting
+#' stationary and stability states as identified by \code{is_stationary()}
+#' and \code{TROLL_sensor_stable()}.
+#'
+#' Observations are colored by profiling state:
+#' \itemize{
+#'   \item \code{"Sonde Moving"}: Sonde is in motion
+#'   \item \code{"Unstable Stationary"}: Stationary but stability criteria not met
+#'   \item \code{"Stable Stationary"}: Meets stability criteria
+#'   \item \code{"Trimmed (Settling)"}: Removed from analysis due to settling time
+#' }
+#'
+#' If \code{range_thresh} is provided, horizontal dashed lines are drawn
+#' around the median value to visualize the allowable range threshold.
+#'
+#' @param df A data frame containing at minimum:
+#'   \itemize{
+#'     \item \code{DateTime}
+#'     \item the sensor column specified by \code{value_col_sym}
+#'     \item a logical stability column (\code{value_flag_col})
+#'     \item \code{is_stationary_status}
+#'   }
+#'
+#' @param value_col_sym Unquoted name of the sensor column to plot.
+#'
+#' @param value_flag_col Character. Name of the logical column indicating
+#'   stability (typically \code{"<param>_stable"}).
+#'
+#' @param range_thresh Numeric. Range threshold used for stability detection.
+#'   If \code{NA}, no threshold lines are drawn.
+#'
+#' @return The plot is printed.
+#'
+#' @details
+#' This function is primarily intended for diagnostic visualization during
+#' tuning of stability parameters.
+#'
+#' @seealso \code{\link{TROLL_sensor_stable}}, \code{\link{is_stationary}}
+#'
+#' @keywords internal
 plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
@@ -96,49 +138,27 @@ is_optical <- function(name){
 #'
 #' @details
 #'
-#' For each stationary block, the function iteratively calculates slope
-#' (units per minute) and value range, starting with the enitre stationary block,
-#' and then dropping one observation at a time, until `slope_thresh` and `range_thresh`
-#' are both met. If both metrics fall within the specified thresholds,
-#' the observation and all subsequent rows in that block are flagged as stable.
+#' For each stationary block, slope (units per minute) and value range are
+#' calculated iteratively using progressively smaller windows, beginning with
+#' the full stationary block and removing leading observations.
 #'
-#' A minimum duration of data can be enforced using \code{min_median_secs}, which is
-#' converted internally to a minimum number of observations based on the sampling
-#' interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
-#' will be flagged as `<data_column_name>_stable` for only the `min_median_secs` before
-#' the sonde is in motion again.
+#' A minimum tail duration defined by \code{min_median_secs} is always retained.
+#' The function searches for the earliest point in the block where both
+#' \code{slope_thresh} and \code{range_thresh} are satisfied, and flags that
+#' observation and all subsequent observations as stable.
 #'
-#' This function requires that stationary blocks have already been identified
-#' using \code{\link{is_stationary}}.
+#' For optical parameters (e.g., turbidity, chlorophyll, fluorescence),
+#' all observations within stationary periods (after settling removal) are
+#' flagged as stable. Range-based criteria are not applied, and slope is used
+#' only to generate diagnostic warnings.
 #'
-#' @param df A data frame containing sensor data and stationary block metadata.
+#' For non-optical sensors, the function searches until `slope_thresh` and
+#' `range_thresh` are both met concurrently, and marks the remainder of the
+#' stationary block at "stable". If neither threshold can be met, the final
+#' \code{min_median_secs} of data within the stationary block are retained and
+#' flagged as stable.
 #'
-#' @param value_col Unquoted name of the sensor column to evaluate for stability
-#'   (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).
-#'
-#' @param min_median_secs Minimum duration (seconds) of observations required to compute
-#'   stability statistics. This value is converted internally to the minimum
-#'   number of observations required in a stationary block. Default is \code{5}.
-#'
-#' @param slope_thresh Maximum allowable absolute slope (units per minute) for
-#'   stable measurements. Default is \code{0.05}.
-#'
-#' @param range_thresh Maximum allowable range (max - min) of values within the
-#'   evaluation window for stability. Default is \code{0.02}.
-#'
-#' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
-#'   columns used during slope and range calculations are removed from the
-#'   returned data frame.
-#'
-#' @param verbose Logical. If \code{TRUE}, prints the depths where stationary
-#'   blocks were identified.
-#'
-#' @param plot Logical. If \code{TRUE}, produces a diagnostic stability plot
-#'   using \code{plot_stability()}.
-#'
-#' @details
-#' The function requires the following columns in \code{df}:
-#'
+#' The input data frame must contain the following columns:
 #' \itemize{
 #'   \item \code{DateTime}
 #'   \item \code{depth_m}
@@ -148,18 +168,62 @@ is_optical <- function(name){
 #'   \item the column specified by \code{value_col}
 #' }
 #'
-#' Observations containing \code{NA} in \code{value_col} are excluded from
-#' stability calculations.
+#' Observations with \code{NA} values in \code{value_col} are excluded
+#' from stability calculations.
 #'
-#' A new logical column is added to the output named
-#' \code{<value_col>_stable}, indicating whether each observation meets
-#' the stability criteria.
+#' This function requires that stationary blocks have already been identified
+#' using \code{\link{is_stationary}}.Stability calculations are performed only on
+#' observations where \code{is_stationary_status == 999}, i.e., fully stationary data
+#' after removal of the initial settling period. The function will error if any
+#' stationary block does not contain sufficient duration (after settling removal)
+#' to satisfy \code{min_median_secs}.
+#'
+#' @param df A data frame containing sensor data and stationary block metadata.
+#'
+#' @param value_col Unquoted name of the sensor column to evaluate for stability
+#'   (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).
+#'
+#' @param min_median_secs Numeric. Minimum duration (seconds) of data to retain
+#'   at the end of each stationary block. If stability criteria are not met,
+#'   this trailing window is still flagged as stable and used for summary
+#'   calculations. Default is \code{5}.
+#'
+#' @param slope_thresh Numeric. Maximum allowable absolute slope (units per minute)
+#'   for stable measurements. If \code{NULL}, a parameter-specific default is
+#'   retrieved from \code{stability_ranges}.
+#'
+#' @param range_thresh Numeric. Maximum allowable range (max - min) within the
+#'   evaluation window. If \code{NULL}, a parameter-specific default is retrieved
+#'   from \code{stability_ranges}.
+#'
+#' @param settling_secs Numeric. Number of seconds to remove from the start
+#'   of each stationary block to allow sensor equilibration. These observations
+#'   are flagged with \code{is_stationary_status = 888}.
+#'
+#' @param drop_cols Logical. If \code{TRUE} (default), intermediate diagnostic
+#'   columns used during slope and range calculations are removed from the
+#'   returned data frame.
+#'
+#' @param verbose Logical. If \code{TRUE}, prints the depths where stationary
+#'   blocks were identified.
+#'
+#' @param plot Logical. If \code{TRUE}, generates a diagnostic plot using
+#'   \code{plot_stability()}. Intended for tuning and debugging, not
+#'   for final analysis outputs.
 #'
 #' @return
-#' A data frame with the original input data plus a logical stability flag
-#' column named \code{<value_col>_stable}. If \code{drop_cols = FALSE},
-#' additional diagnostic columns describing slope, range, and window
-#' metadata are included.
+#' A data frame containing the original input data with an added logical column
+#' \code{<value_col>_stable}. This column indicates whether each observation
+#' meets the stability criteria.
+#'
+#' If \code{drop_cols = FALSE}, additional diagnostic columns are included:
+#' \itemize{
+#'   \item \code{slope}: slope of the evaluation window
+#'   \item \code{range}: value range within the window
+#'   \item \code{n_used}: number of observations used
+#'   \item \code{n_dropped}: number of leading observations removed
+#'   \item \code{slope_ok}, \code{range_ok}: logical threshold checks
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -244,16 +308,16 @@ TROLL_sensor_stable <- function(df,
 
   # Check min_median_secs and slope_thresh are positive numeric
   if(!is.numeric(min_median_secs) || length(min_median_secs) != 1 || is.na(min_median_secs) || min_median_secs < 0){
-    stop('"min_median_secs" must be a single positive numeric value.')
+    stop('`min_median_secs` must be a single positive numeric value.')
   }
 
   if(!is.numeric(slope_thresh) || length(slope_thresh) != 1 || is.na(slope_thresh) || slope_thresh < 0){
-    stop('"slope_thresh" must be a single positive numeric value.')
+    stop('`slope_thresh` must be a single positive numeric value.')
   }
 
   if(!optical_param){
     if(!is.numeric(range_thresh) || length(range_thresh) != 1 || is.na(range_thresh) || range_thresh < 0){
-      stop('"range_thresh" must be a single positive numeric value.')
+      stop('`range_thresh` must be a single positive numeric value.')
     }
   }
 
@@ -528,13 +592,4 @@ TROLL_sensor_stable <- function(df,
 
 
 
-# # Need to deal with y axis scaling when it blows up
-# xx <-
-#   TROLL_sensor_stable(dat_stationary,
-#                       value_col = turbidity_NTU,
-#                       range_thresh = NULL, slope_thresh = 0.5,
-#                       drop_cols = F,
-#                       plot = T)
-#
-# junk <- dat_stationary[dat_stationary$stationary_depth ==2.900370,]
-# junk
+

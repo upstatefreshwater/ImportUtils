@@ -24,9 +24,26 @@ validate_args <- function(
   check_logical(drop_cols, "drop_cols")
 
   # --- Plot checks (single logical applies to both in normalization helper below) ---
-  if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
-  if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
-    stop("`plot` names must be 'Final' and/or 'Stationary'.")
+  # if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
+  # if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
+  #   stop("`plot` names must be 'Final' and/or 'Stationary'.")
+  if (!is.logical(plot) || any(is.na(plot))) {
+    stop("`plot` must be logical.")
+  }
+
+  if (!is.null(names(plot))) {
+    if (any(names(plot) == "")) {
+      stop("`plot` names cannot be empty.")
+    }
+    if (anyDuplicated(names(plot))) {
+      stop("`plot` names must be unique.")
+    }
+    if (!all(names(plot) %in% c("Final", "Stationary"))) {
+      stop("`plot` names must be 'Final' and/or 'Stationary'.")
+    }
+  } else if (length(plot) > 1) {
+    stop("Unnamed `plot` must be length 1 (TRUE/FALSE) or a named vector.")
+  }
 
   # --- Range thresholds checks ---
   if (!is.null(stbl_range_thresholds)) {
@@ -112,9 +129,9 @@ normalize_args <- function(plot,
 #'   and `$Summary_Data` (medians) as a list.
 #' @param drop_cols Logical. If \code{TRUE}, removes intermediate processing columns.
 #' @param plot Logical or named logical vector. Controls optional plotting from
+#'   \code{is_stationary} and \code{TROLL_stable_summary}.
+#'   Default is \code{c(Final = FALSE, Stationary = FALSE)}.
 #' @param debug Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.
-#' \code{is_stationary} and \code{TROLL_stable_summary}.
-#' Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.
 #'
 #' @return The output depends on the \code{summarize_data} argument:
 #' \describe{
@@ -365,11 +382,12 @@ TROLL_profile_compiler <- function(path,                                        
   }
 
   # 8. Optionally plot the medians over raw data ----
-  if(plot["Final"] & !summarize_data){
+
+  if (isTRUE(plot["Final"]) && !summarize_data)
     stop('\nCannot plot summary data when `summarize_data` is FALSE.')
   }
 
-  if(plot["Final"] && summarize_data){
+if (isTRUE(plot["Final"]) && summarize_data)
     for (i in params) {
 
       # plot_df <- out|>
