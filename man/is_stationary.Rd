@@ -11,13 +11,12 @@ is_stationary(
   depth_range_threshold = 0.05,
   stationary_secs = 60,
   rolling_range_secs = 10,
-  start_trim_secs = 15,
   drop_cols = TRUE,
   plot = FALSE
 )
 }
 \arguments{
-\item{df}{A data frame containing depth and datetime observations.}
+\item{df}{A data frame containing depth and datetime observations. Optionally, a path may be passed to the location of a raw TROLL CSV file, in which case `TROLL_read_data()` and `TROLL_rename_cols()` will be run with default setting to create `df`..}
 
 \item{depth_col}{Column in `df` representing depth measurements (numeric). Default is `depth_m`.}
 
@@ -28,8 +27,6 @@ is_stationary(
 \item{stationary_secs}{Numeric. Minimum duration in seconds for a block to be considered stationary. Default is `60`.}
 
 \item{rolling_range_secs}{Numeric. Window size in seconds used to calculate rolling depth range. Default is `10`.}
-
-\item{start_trim_secs}{Numeric. Number of seconds to trim from the start of stationary blocks to remove initial jumps. Default is `15`.}
 
 \item{drop_cols}{Logical. If TRUE, intermediate columns used for computation are removed from the output. Default is `TRUE`.}
 
@@ -59,7 +56,6 @@ depth and rolling range over time.
 The function first calculates the sampling interval based on lagged differences of the `datetime_col`.
 It then computes a rolling range of depth values across a window size of length = `rolling_range_secs`.
 It identifies candidate stationary periods where the rolling range is below `depth_range_threshold`.
-The `start_trim_secs` parameter enables trimming of initial observations in a stationary block.
 Blocks shorter than `stationary_secs` are flagged with `is_stationary_status` equal to seconds stationary.
 Blocks longer than `stationary_secs` are flagged as 999. If the sampling interval exceeds 30 seconds,
 the sonde is assumed to be fixed, and all rows are returned with `is_stationary_status = 999`.

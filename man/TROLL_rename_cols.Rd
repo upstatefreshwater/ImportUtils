@@ -24,9 +24,16 @@ standardizing column names.}
 \item{strip_metadata}{Logical; if \code{TRUE}, removes metadata columns specified in the `troll_column_dictionary`.}
 
 \item{verbose}{Logical; if \code{TRUE}, prints the final
-  standardized column names to the console.
-
-#'@details
+standardized column names to the console.}
+}
+\value{
+A data frame with validated and standardized column names.
+}
+\description{
+Cleans, validates, and standardizes raw TROLL CSV column names
+into names used throughout the package.
+}
+\details{
 The function performs the following steps:
 \enumerate{
   \item Detects and renames TROLL-COM temperature columns.
@@ -40,14 +47,7 @@ The function will stop execution if:
   \item Unknown columns are detected,
   \item Multiple columns map to the same canonical name,
   \item Required columns are missing.
-}}
 }
-\value{
-A data frame with validated and standardized column names.
-}
-\description{
-Cleans, validates, and standardizes raw TROLL CSV column names
-into names used throughout the package.
 }
 \seealso{
 \code{\link{troll_column_dictionary}}

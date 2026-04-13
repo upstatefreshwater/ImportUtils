@@ -4,7 +4,12 @@
 \alias{TROLL_stable_summary}
 \title{Summarize stable TROLL observations}
 \usage{
-TROLL_stable_summary(df, group_col = stationary_depth, summary_fn = median)
+TROLL_stable_summary(
+  df,
+  group_col = stationary_depth,
+  summary_fn = median,
+  digits = 4
+)
 }
 \arguments{
 \item{df}{A data frame containing sensor observations and
@@ -15,6 +20,8 @@ corresponding `_stable` flag columns.}
 
 \item{summary_fn}{Summary function applied to stable values.
 Default is `median`.}
+
+\item{digits}{Numeric. Number of decimal places to round result of `summary_fn`.}
 }
 \value{
 A data frame with one row per group and summarized

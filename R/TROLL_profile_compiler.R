@@ -1,6 +1,6 @@
 # Argument validation helper
 validate_args <- function(
-    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stbl_settle_secs,
     stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges # pass your defaults table
@@ -10,10 +10,10 @@ validate_args <- function(
   check_numeric(stn_depthrange, "stn_depthrange")
   check_numeric(stn_secs, "stn_secs")
   check_numeric(stn_rollwindow_secs, "stn_rollwindow_secs")
-  check_numeric(stn_startrim_secs, "stn_startrim_secs", allow_zero = TRUE)
+  check_numeric(stbl_settle_secs, "stbl_settle_secs", allow_zero = TRUE)
   check_numeric(stbl_min_secs, "stbl_min_secs")
 
-  if (stn_startrim_secs >= stn_secs) stop("`stn_startrim_secs` must be less than `stn_secs`.")
+  if (stbl_settle_secs >= stn_secs) stop("`stbl_settle_secs` must be less than `stn_secs`.")
   if (stn_rollwindow_secs > stn_secs) stop("`stn_rollwindow_secs` must be <= `stn_secs`.")
 
  if (stbl_min_secs > stn_secs)
@@ -23,10 +23,27 @@ validate_args <- function(
   check_logical(summarize_data, "summarize_data")
   check_logical(drop_cols, "drop_cols")
 
-  # --- Plot checks ---
-  if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
-  if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
-    stop("`plot` names must be 'Final' and/or 'Stationary'.")
+  # --- Plot checks (single logical applies to both in normalization helper below) ---
+  # if (!is.logical(plot) || any(is.na(plot))) stop("`plot` must be logical.")
+  # if (!is.null(names(plot)) && !all(names(plot) %in% c("Final", "Stationary")))
+  #   stop("`plot` names must be 'Final' and/or 'Stationary'.")
+  if (!is.logical(plot) || any(is.na(plot))) {
+    stop("`plot` must be logical.")
+  }
+
+  if (!is.null(names(plot))) {
+    if (any(names(plot) == "")) {
+      stop("`plot` names cannot be empty.")
+    }
+    if (anyDuplicated(names(plot))) {
+      stop("`plot` names must be unique.")
+    }
+    if (!all(names(plot) %in% c("Final", "Stationary"))) {
+      stop("`plot` names must be 'Final' and/or 'Stationary'.")
+    }
+  } else if (length(plot) > 1) {
+    stop("Unnamed `plot` must be length 1 (TRUE/FALSE) or a named vector.")
+  }
 
   # --- Range thresholds checks ---
   if (!is.null(stbl_range_thresholds)) {
@@ -36,7 +53,6 @@ validate_args <- function(
       stop("`stbl_range_thresholds` must have non-empty names.")
     if (any(is.na(stbl_range_thresholds))) stop("`stbl_range_thresholds` cannot contain NA.")
 
-    ###########################
     # Check for unknown params in stability_ranges
     unknown_params <- setdiff(names(stbl_range_thresholds), stability_ranges$param)
 
@@ -52,7 +68,6 @@ validate_args <- function(
       )
     }
   }
-    #########################
 }
 
 # Argument normalization / updating helper
@@ -84,7 +99,7 @@ normalize_args <- function(plot,
   if (!is.null(stbl_range_thresholds)) {
     update_tbl <- tibble::tibble(
       param = names(stbl_range_thresholds),
-      range_thresh = unname(stbl_range_thresholds)
+      range = unname(stbl_range_thresholds)
     ) |>
       dplyr::filter(param %in% ranges$param)
     if (nrow(update_tbl) > 0) ranges <- dplyr::rows_update(ranges, update_tbl, by = "param")
@@ -105,7 +120,7 @@ normalize_args <- function(plot,
 #' @param stn_secs Numeric. Minimum time (seconds) required for a stationary block
 #'   to be considered fully stationary (flagged by: \code{is_stationary_status = 999}).
 #' @param stn_rollwindow_secs Numeric. Window size (seconds) used to compute rolling range for stationary detection.
-#' @param stn_startrim_secs Numeric. Seconds to trim from the start of each stationary block.
+#' @param stbl_settle_secs Numeric. Seconds to trim from the start of each stationary block.
 #' @param stbl_min_secs Numeric. Minimum seconds used to calculate a summary
 #'   statistic if stability is not reached within a stationary period.
 #' @param stbl_range_thresholds Optional named numeric vector. Custom stability
@@ -114,9 +129,9 @@ normalize_args <- function(plot,
 #'   and `$Summary_Data` (medians) as a list.
 #' @param drop_cols Logical. If \code{TRUE}, removes intermediate processing columns.
 #' @param plot Logical or named logical vector. Controls optional plotting from
+#'   \code{is_stationary} and \code{TROLL_stable_summary}.
+#'   Default is \code{c(Final = FALSE, Stationary = FALSE)}.
 #' @param debug Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.
-#' \code{is_stationary} and \code{TROLL_stable_summary}.
-#' Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.
 #'
 #' @return The output depends on the \code{summarize_data} argument:
 #' \describe{
@@ -179,8 +194,8 @@ TROLL_profile_compiler <- function(path,                                        
                                    stn_depthrange = 0.1,                         # Rolling range setting input to is_stationary()
                                    stn_secs = 45,                                # Time required after starttrim for is_stationary_status to be set to 999 (fully stationary)
                                    stn_rollwindow_secs = 10,                     # Size of the window used to calculate rolling range within is_stationary()
-                                   stn_startrim_secs = 4,                        # Number of seconds to be trimmed off the start of each stationary block
                                    # sensor_stable
+                                   stbl_settle_secs = 10,                         # Number of seconds to be trimmed off the start of each stationary block
                                    stbl_min_secs = 5,                            # Minimum time to be used to calculate summary stat if stability is not detected within a stationary block
                                    stbl_range_thresholds = NULL,                 # Optionally provide custom range thresholds for individual params to detect sensor stability
                                    # Optional controls
@@ -201,7 +216,7 @@ TROLL_profile_compiler <- function(path,                                        
   datetime_name <- rlang::as_name(datetime_col)
   # Validation helper
   validate_args(
-    stn_depthrange, stn_secs, stn_rollwindow_secs, stn_startrim_secs,
+    stn_depthrange, stn_secs, stn_rollwindow_secs, stbl_settle_secs,
     stbl_min_secs,
     summarize_data, drop_cols, plot, stbl_range_thresholds,
     stability_ranges
@@ -293,7 +308,6 @@ TROLL_profile_compiler <- function(path,                                        
                                   depth_range_threshold = stn_depthrange,
                                   stationary_secs = stn_secs,
                                   rolling_range_secs = stn_rollwindow_secs,
-                                  start_trim_secs = stn_startrim_secs,
                                   drop_cols = drop_cols,
                                   plot = plot["Stationary"])  # Control via named vector
 
@@ -320,15 +334,22 @@ TROLL_profile_compiler <- function(path,                                        
     flag_col <- paste0(params[i], "_stable")
 
     # Add the flag column only to output
-    out_list[[i]] <- TROLL_sensor_stable(
+    stable_i <- TROLL_sensor_stable(
       df = dat_stationary,
       value_col = !!param_i,
-      min_secs = stbl_min_secs,
-      range_thresh = ranges$range_thresh[ranges$param == params[i]]               # Set the rolling range threshold for individual params in the data
-    ) |>
-      dplyr::pull(flag_col)
+      settling_secs = stbl_settle_secs,
+      min_median_secs = stbl_min_secs,
+      drop_cols = drop_cols,
+      range_thresh = ranges$range[ranges$param == params[i]],    # Set the rolling range threshold for individual params in the data (ranges object was updated if user input provided)
+      slope_thresh = NULL                                        # Use default values
+      )
 
+    out_list[[i]] <- stable_i |>
+      dplyr::pull(flag_col)
   }
+
+  # Overwrite is_stationary_status to add settling trimming flag (888)
+  dat_stationary$is_stationary_status <- stable_i$is_stationary_status
 
   # locate each flag column next to the sensor data column its associated with
   out <- dplyr::bind_cols(out_list)
@@ -361,37 +382,67 @@ TROLL_profile_compiler <- function(path,                                        
   }
 
   # 8. Optionally plot the medians over raw data ----
-  if(plot["Final"] & !summarize_data){
+
+  if (isTRUE(plot["Final"]) && !summarize_data){
     stop('\nCannot plot summary data when `summarize_data` is FALSE.')
   }
-  if(plot["Final"] && summarize_data){
+
+if (isTRUE(plot["Final"]) && summarize_data){
     for (i in params) {
+      plot_df <- out |>
+        dplyr::mutate(
+          value = .data[[i]],
+          stable_flag = .data[[paste0(i, "_stable")]] %in% TRUE,
+          plot_status = dplyr::case_when(
+            stable_flag ~ "Sensor Stable",
+            is_stationary_status == 888 ~ "Trimmed: settling",
+            is_stationary_status == 999 ~ "Sonde Stationary",
+            TRUE ~ "Sonde Moving"
+          ),
+          plot_status = factor(
+            plot_status,
+            levels = c("Sonde Moving", "Sonde Stationary", "Trimmed: settling", "Sensor Stable")
+          )
+        )
 
       flag_data_column <- rlang::sym(i)
       depth_column_sym <- rlang::sym(depth_name)
-      summary_column <- rlang::sym(paste0(i,'_stable'))
+      summary_column <- rlang::sym(i)
 
       print(
-        ggplot2::ggplot() +
-          ggplot2::geom_point(data = out,
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          ggplot2::geom_path(data = out,
-                             ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Raw Data')) +
-          ggplot2::geom_point(data = out |> dplyr::filter(is_stationary_status < 999),
-                              ggplot2::aes(x = !!flag_data_column, y = !!depth_column_sym, color = 'Sonde Moving')) +
-          ggplot2::geom_point(data = stable_summary,
-                              ggplot2::aes(x = !!summary_column,y=stationary_depth, color = 'Final'),
-                              pch = 17, cex = 3) +
+        ggplot2::ggplot(plot_df) +
+          ggplot2::geom_path(
+            ggplot2::aes(x = value, y = .data[[depth_name]], group = 1, color = "All Data")
+          ) +
+          ggplot2::geom_point(
+            data = dplyr::filter(plot_df, is_stationary_status < 999),
+            ggplot2::aes(x = value, y = .data[[depth_name]], color = "Sonde Moving")
+          ) +
+          ggplot2::geom_point(
+            ggplot2::aes(x = value, y = .data[[depth_name]], color = plot_status)
+          ) +
+          ggplot2::geom_point(
+            data = stable_summary,
+            ggplot2::aes(x = .data[[i]], y = stationary_depth, color = "Final"),
+            shape = 17, size = 3
+          ) +
           ggplot2::scale_y_reverse() +
-          ggplot2::scale_x_continuous(position = 'top') +
-          ggplot2::labs(y = 'Depth (m)') +
-          ggplot2::scale_color_manual(name = '',
-                                      values = c('Raw Data' = 'firebrick4',
-                                                 'Final' = 'dodgerblue',
-                                                 'Sonde Moving' = 'firebrick1')) +
+          ggplot2::scale_x_continuous(position = "top") +
+          ggplot2::labs(y = "Depth (m)",
+                        x = i) +
+          ggplot2::scale_color_manual(
+            name = "",
+            values = c(
+              "All Data" = "grey80",
+              "Sonde Moving" = "firebrick1",
+              "Sonde Stationary" = "firebrick4",
+              "Trimmed: settling" = "goldenrod2",
+              "Sensor Stable" = "dodgerblue3",
+              "Final" = "dodgerblue"
+            )
+          ) +
           cowplot::theme_cowplot()
       )
-
     }
   }
   # . --- Return Final Data --- ----

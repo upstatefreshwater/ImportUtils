@@ -11,7 +11,7 @@ TROLL_profile_compiler(
   stn_depthrange = 0.1,
   stn_secs = 45,
   stn_rollwindow_secs = 10,
-  stn_startrim_secs = 4,
+  stbl_settle_secs = 10,
   stbl_min_secs = 5,
   stbl_range_thresholds = NULL,
   summarize_data = TRUE,
@@ -34,7 +34,7 @@ to be considered fully stationary (flagged by: \code{is_stationary_status = 999}
 
 \item{stn_rollwindow_secs}{Numeric. Window size (seconds) used to compute rolling range for stationary detection.}
 
-\item{stn_startrim_secs}{Numeric. Seconds to trim from the start of each stationary block.}
+\item{stbl_settle_secs}{Numeric. Seconds to trim from the start of each stationary block.}
 
 \item{stbl_min_secs}{Numeric. Minimum seconds used to calculate a summary
 statistic if stability is not reached within a stationary period.}
@@ -47,11 +47,11 @@ and `$Summary_Data` (medians) as a list.}
 
 \item{drop_cols}{Logical. If \code{TRUE}, removes intermediate processing columns.}
 
-\item{plot}{Logical or named logical vector. Controls optional plotting from}
-
-\item{debug}{Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.
+\item{plot}{Logical or named logical vector. Controls optional plotting from
 \code{is_stationary} and \code{TROLL_stable_summary}.
-Default is \code{c(Final = FALSE,Stationary = FALSE)}. Single TRUE/FALSE applies to both.}
+Default is \code{c(Final = FALSE, Stationary = FALSE)}.}
+
+\item{debug}{Logical. If TRUE, prints the parameters being looped over during stability calculation to aid in debugging.}
 }
 \value{
 The output depends on the \code{summarize_data} argument:

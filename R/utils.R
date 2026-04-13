@@ -1,4 +1,4 @@
-# Finds the nearest depth from a raw data column to a candidate set of target depths
+# Finds the nearest depth from a raw data column to a candidate set of target depths ----
 nearest_depth <- function(raw_z,
                           candidate_z,
                           tol = 0.25,
@@ -25,7 +25,8 @@ nearest_depth <- function(raw_z,
   out
 }
 
-# Calculates the sampling interval from a column/vector of datetime data as the mode (if multiple intervals detected)
+# Calculates the sampling interval ----
+# from a column/vector of datetime data as the mode (if multiple intervals detected)
 # If multiple intervals detected, it gives a warning only
 
 get_sample_interval <- function(datetime_data,
@@ -71,12 +72,15 @@ get_sample_interval <- function(datetime_data,
   sampling_int
 }
 
+# (deprecated) ----
+# This function is not currently used after the removal of `start_trim_secs` from `is_stationary`
+
 # Trimming utility for is_stationary
 # This function is specific to the is_stationary function
 # and accepts a Boolean vector where rolling_range < depth_range_threshold == TRUE
 
 trim_stationary_starts <- function(range_met_vector,
-                                   depth_range_threshold,
+                                   # depth_range_threshold,
                                    rolling_n,
                                    trim_n){
   if(!is.logical(range_met_vector)){
@@ -93,6 +97,7 @@ trim_stationary_starts <- function(range_met_vector,
   starts_idx <- which(c(NA, diff(bool_roll)) == 1)
 
   out <- c()
+
   # Loop through each detected stationary block
 
   if(trim_n < rolling_n){
@@ -132,19 +137,19 @@ trim_stationary_starts <- function(range_met_vector,
     }
   }
 
-  if(trim_n > rolling_n){
-    for (s in starts_idx) {
-      trim_diff <- trim_n - rolling_n
-
-      start_i <- s
-
-      end_i <- s + trim_diff
-
-      out <- c(out,start_i:end_i)
-
-
-    }
-  }
+  # if(trim_n > rolling_n){
+  #   for (s in starts_idx) {
+  #     trim_diff <- trim_n - rolling_n
+  #
+  #     start_i <- s
+  #
+  #     end_i <- s + trim_diff
+  #
+  #     out <- c(out,start_i:end_i)
+  #
+  #
+  #   }
+  # }
   return(out)
 }
 
@@ -178,4 +183,22 @@ check_logical <- function(x, name) {
 }
 
 
+
+
+# Extract TROLL slope and range threshold from internal data ----
+
+get_threshold <- function(param, type){
+  val <- stability_ranges[[type]][stability_ranges$param == param]
+  if(length(val) != 1){
+    stop(paste0("No ", type, " found for ", param))
+  }
+  val
+}
+
+# Calculated slope instead of lm() ----
+calc_slope <- function(x, y){
+  v <- stats::var(x)
+  if(is.na(v) || v == 0) return(NA_real_)
+  stats::cov(x, y) / v
+}
 
