@@ -2,12 +2,32 @@
 title: "Tuning TROLL Workflow"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{TROLL-workflow}
+  %\VignetteIndexEntry{Tuning TROLL Workflow}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+<style type="text/css">
+body {
+  max-width: 90% !important;  /* Or 1200px if you want a fixed limit */
+  margin: auto;               /* Centers the page */
+  padding: 1em;               /* Prevents text from hitting the edge */
+ font-size: 18px;            /* Increases the general text size */
+  line-height: 1.6;           /* Adds space between lines for readability */
+}
+
+/* Optional: If you want your code blocks to be larger too */
+code, pre {
+  font-size: 16px !important; 
+}
+
+/* Ensure code blocks and images also expand */
+pre, img {
+  max-width: 100%;
+}
+</style>
+
+```{r Setup, include=FALSE}
 library(ImportUtils)
 knitr::opts_chunk$set(
   collapse = TRUE,
@@ -48,7 +68,7 @@ The function checks whether seconds are included in the datetime values and atte
 formatting if needed. Because the "Date Time" column is used to identify the start of the dataset, 
 it must be present in the input file.
 
-```{r, echo=TRUE,include=TRUE}
+```{r Data Read, echo=TRUE, warning=FALSE, include=TRUE}
 path <- system.file(
   "extdata",
   "TROLL_exdata.csv",
@@ -66,7 +86,7 @@ At this stage, the data are imported without interpretation or modification beyo
 Downstream functions rely on column names being named consistently; this function enforces standard (canonical)
 naming conventions via `troll_column_dictionary`. 
 
-```{r, echo=TRUE,include=TRUE}
+```{r Rename Columns, echo=TRUE,include=TRUE}
 dat_rename <- TROLL_rename_cols(
   df = dat_read,
   colname_dictionary = troll_column_dictionary
@@ -80,7 +100,7 @@ the dictionary should be updated if these columns represent new sensor data. It 
 names by creating a unique dictionary object and passing it to the `colname_dictionary`
 argument using `troll_column_dictionary` as a template and adding additional rows as required. 
 
-```{r,echo=TRUE,include=TRUE, error=TRUE}
+```{r Column Dictionary,echo=TRUE,include=TRUE, error=TRUE}
 missing_dictionary_row <- troll_column_dictionary[-5,] # Drops "pH_units"
 
 # The error when a column is missing from dictionary
@@ -111,7 +131,7 @@ metadata whent `strip_metadata` = TRUE.
 The `trollcomm_serials` arguments allows users to use a custom vector of serial numbers associated with 
 Troll-Comm units, if the internal dataset is out of date. 
 
-```{r,echo=TRUE,include=FALSE}
+```{r COMM Serials,echo=TRUE,include=FALSE}
 TROLL_rename_cols(
   df = dat_read,
   trollcomm_serials = c(1151975, 1153542) # Add additional serial #'s here
@@ -120,7 +140,7 @@ TROLL_rename_cols(
 Metadata columns (e.g. "latitude", "longitude", "battery" etc.) are removed by default, but can be retained by toggling
 `strip_metadata` == FALSE. The inclusive list of metadata columns are defined within the column dictionary:
   
-```{r,echo=TRUE,include=TRUE}
+```{r Metadata,echo=TRUE,include=TRUE}
 troll_column_dictionary[troll_column_dictionary$meta,]
 
 dat_meta <- TROLL_rename_cols(
@@ -132,7 +152,7 @@ dat_meta <- TROLL_rename_cols(
 For troubleshooting, the `verbose` argument may be toggled to allow printing of messages to the console regarding 
 presence/absense of Troll-Comm columns, and which parameters were detected. 
 
-```{r,echo=TRUE,include=TRUE}
+```{r Verbose,echo=TRUE,include=TRUE}
 dat_echo <- TROLL_rename_cols(
   df = dat_read,
   verbose = TRUE
@@ -142,6 +162,8 @@ dat_echo <- TROLL_rename_cols(
 Once naming schema are standardized, the next step is to detect periods when the sonde was stationary in the water column. 
 The `is_stationary` function detects periods when the sonde is stationary based on a rolling range, and assigns
 `is_stationary_status` based on the amount of time the sonde has remained within a `depth_range_threshold`. 
+
+**You can simply pass a path to the `df` argument of `is_stationary` and steps 1 & 2 will be completed within the function**
 
 ### How to Tune Stationary Detection
 
@@ -160,7 +182,7 @@ Length of the backward-looking window used to comput depth range
   * Larger values = smoother, more conservative detection
   * Smaller values = more sensitive to short-term variation
 
-```{r, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=FALSE}
+```{r First Stationary, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=FALSE}
 dat_stationary <- 
 is_stationary(df = dat_rename,
               depth_range_threshold = 0.025,
@@ -177,7 +199,7 @@ detection**.
 In this example, we can observe in the rolling range plot on bottom, that our `depth_range_threshold` is too strict, causing splitting 
 of blocks that hover near the same depth. 
 
-```{r, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=FALSE}
+```{r stationary adjust range, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=FALSE}
 dat_stationary <- 
 is_stationary(df = dat_rename,
               depth_range_threshold = 0.05, # increased to avoid erroneous splits (this is the default value)
@@ -189,142 +211,181 @@ is_stationary(df = dat_rename,
 Now, the blocks are continuous, but it is clear that if we want to include data from > 5 m, we will have to relax `stationary_secs` to
 allow shorter periods through. 
 
-```{r, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=TRUE}
+```{r stationary adjust time, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=6, warning=TRUE}
 dat_stationary <- 
 is_stationary(df = dat_rename,
               depth_range_threshold = 0.05, # increased to avoid erroneous splits (this is the default value)
               stationary_secs = 24,
               plot = TRUE)
 ```
-**Figure 3: Plot output form `is_stationary` afte adjustment of `stationary_secs`. 
+**Figure 3**: Plot output form `is_stationary` afte adjustment of `stationary_secs`. 
 
 **The "Warning: Inconsistent sampling intervals..."** is created by an internal helper that extracts sampling interval from 
 the DateTime column. What it's telling you is that there are inconsistent temporal "jumps" in the data, usually caused by the Troll-Comm 
 glitching. This is only an issue if the "Dominant Interval" is not detected as what it should be (2 seconds in this example is correct).
 Stationary periods are calculated based on time, so large jumps are not a problem as long as the sonde was held in the same position. 
 
-Now we have flagged stationary depth from 0 - 8 meters at ~ 1.0 m intervals. 
+### Now we have flagged stationary depth from 0 - 8 meters at ~ 1.0 m intervals. 
 
 ## Step 4: Detect Stable Sensor Data Inside Stationary Blocks
 
 The `TROLL_sensor_stable()` function handles one column of sensor data at a time. It is iteratively applied 
-across all parameter columns within `TROLL_profile_compiler`. By bringing it outside of the compiler, we can elect to 
-tune individual inputs if necessary. 
+across all parameter columns within `TROLL_profile_compiler` using default range and slope threshold values (`stability_ranges`).
+In this section, the function is applied outside of the compiler to demonstrate how tuning of `TROLL_sensor_stable` 
+may be applied for individual parameters, if necessary. 
 
-Individual sensors behave inconsistently in field data. In order to extract the best possible final
-value, `TROLL_profile_compiler` uses range and slope across stationary blocks of data to evaluate
-if data are stable, using the maximum number of observations that meet criteria to calculate a
-summary statistic. 
+#### How Stability Detection Works 
 
-*Note* This function requires that `is_stationary_status` has been appended to the data by `is_stationary`. 
+At the core, stability detection functions the same across all data parameters: 
 
-For an individual parameter: 
+1. Stationary blocks of data are identified using `is_stationary`
+2. An initial "settling period" is trimmed from the start of each block via `settling_secs`
+3. Slope and range are calculated across each stationary block independently 
+4. Observations are dropped iteratively from the start of each stationary block, slope and range are re-calculated on the remainder
+until `min_secs` of time remains in the stationary block
+5. Once `slope_thresh` AND `range_thresh` are met, the remainder of the block is used to calculate the median value
 
-```{r, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=4}
+**Optical Probes (Turbidity, Chlorophyll, BGA)** utilize all "stationary" data after trimming of `stationary_secs` due to optical 
+sensor behavior. A warning is shown if the slope threshold is exceeded for one of the optical parameters, allowing the user 
+to explore if there are suspect data at the specific stationary depth output by `TROLL_stable_summary`. 
+
+### Time Series Plots
+
+It may not be intuitive at first to view water column profile data as time series plots, however, by doing so the user is able 
+to visually assess how parameter values are changing through the cast relative to stationary blocks of data, and whether the 
+extracted "stable" data points are representative of reality. 
+
+```{r pH Stability, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=4}
 dat_stable <- TROLL_sensor_stable(
   df = dat_stationary,
   value_col = pH_units,
-  settling_secs = 10,
-  min_median_secs = 5,
+  settling_secs = 10,  # Front end trimming of stationary blocks
+  min_median_secs = 5, # Minimum amount of data retained to calculate median if stability is not detected
   slope_thresh = 0.05,
   range_thresh = 0.02,
-  drop_cols = TRUE,
-  verbose = FALSE,
   plot = TRUE           # Optional plotting toggled ON
 )
 
-  dat_stable |>
-    dplyr::select(DateTime, stationary_depth,is_stationary_status,pH_units_stable)
-
 ```
+**Figure 4**: Plot output from `TROLL_sensor_stable` for pH. 
 
-The optional plot aids in understanding what the function is doing. First, across the entire stationary block
-data range and slope are calculated. Then, observations are dropped iteratively one at a time until *both*
-`slope_thresh` and `range_thresh` are met. The remaining observations in the stationary block are all marked 
-as `<value_col>_stable` == TRUE. 
+The horizontal dashed lines represent the `range_thresh` value, which can be useful for tuning. The dark purple points are the extracted "stable"
+data which are used to calculate the median at each stationary depth by `TROLL_stable_summary`. 
 
-**Note** the use of time on the x-axis. 
-Also - two solid lines indicate the `range_thresh` input by user. This is a guide for visualization only. 
+In **Figure 4** an exponential type relationship is apparent across each stationary block of data, with stability occurring late in each block. 
+Due to the nature of the parameters being measured, as well as how optical sensors record data, values from optical sensors (turbidity, 
+chlorophyll, BGA) tend to be noisier and not exhibit such exponential changes (**Figure 5**). 
 
-Critical inputs are:
+```{r Turb Stability, echo=TRUE, include=TRUE,fig.align='center', fig.width=8, fig.height=4}
+dat_stable <- TROLL_sensor_stable(
+  df = dat_stationary,
+  value_col = turbidity_NTU,
+  settling_secs = 10,  # Front end trimming of stationary blocks
+  min_median_secs = 5, # Minimum amount of data retained to calculate median if stability is not detected
+  slope_thresh = NULL, # Use defaults
+  range_thresh = NULL, # Use defaults
+  plot = TRUE          # Optional plotting toggled ON
+)
+```
+**Figure 5**: Plot output from `TROLL_sensor_stable` for turbidity. 
 
-    1) `slope_thresh`: the slope threshold that must be met for stability. 
-    2) `range_thresh`: the data range threshold that must be met for stability. 
-    3) `min_secs`: Minimum duration of data to be retained regardless if `slope_thresh` and `range_thresh` are met. 
+The function here warns us that the slope threshold was exceeded at 3 stationary depths:
 
-**Note** `stationary_status` must be `999` from `is_stationary()` for stability to be examined. If depths are missing
-consider tuning inputs to `is_stationary` to extract more fully stationary blocks. 
+1. At 2.90 m (the fourth stationary block accounting for depth 0) this is clearly caused by a small number of observations at the tail of the stationary block of ~ 2.4 - 2.5 NTU
+2. At 6.83 m the data exhibits consistent drift in the negative direction
+3. At 7.68 m is primarily the result of higher NTU values (on a relative basis such as percent change this would appear less impactful)
+
+There are no range threshold lines in **Figure 5** because it is not used for optical sensors. 
 
 ## Step 5: Summarize Stable Data
 
 With data flagged as stable in hand, the `TROLL_stable_summary` function compiles the output into a single value (default = median)
-for each stationary depth:
+for each stationary depth. This is carried out internally in `TROLL_profile_compiler` when `summarize_data` is set to `TRUE`. For 
+demonstration here we compile the summary data for turbidity used in **Figure 5**. 
 
-```{r,echo=TRUE,include=TRUE}
+```{r stable summary,echo=TRUE,include=TRUE}
 dat_summary <- TROLL_stable_summary(
   df = dat_stable,
   group_col = stationary_depth
-)
+) |>
+  dplyr::select(stationary_depth, turbidity_NTU)
 dat_summary
 ```
 
 ## Step 6: Putting it all Together
 
-Each of the steps above may be executed using the `TROLL_profile_compiler` function. This is a high level wrapper that 
-automatically detects parameters using the `troll_colname_dictionary` and iterates over them with `TROLL_sensor_stable` 
-to provide unique stability flags for each paramter. 
+The `TROLL_profile_compiler` function is a high level wrapper that automatically detects parameters using the `troll_colname_dictionary` 
+and iterates over them with `TROLL_sensor_stable` to provide summarized data from an entire AquaTroll sonde cast. Inputs to the compiler
+are named to indicate which of the other package functions they relate to: 
 
-Default values for individual`range_thresh` by parameter are given by `stability_ranges`:
+1. prefix "stn_" is associated with inputs to `is_stationary`
+2. prefix "stbl_" is associated with input to `TROLL_sensor_stable`
 
-```{r,echo=FALSE,include=TRUE}
+The output from the compiler is either: 
+
+1. A list of length (2) if `summarize_data` is set to `TRUE`
+  a. The first list element is names "Flagged_Data", and is the raw input dataframe with a "<param>_stable" flag appended to each paramter column. 
+  b. The second list element are the summary output from `TROLL_stable_summary`
+  
+Instead of timeseries plots, the compiler function outputs classical "profile" plots for each of the core parameters in the data when `plot = c(Final = TRUE)`. 
+
+### Updating Inputs to the Compiler Based on Tuning Results
+
+If the default values for any of the inputs needs to be tuned, they can updated: 
+
+|TROLL_profile_compiler|Other Package Function|Other Function Input|
+|:---|:---|:---|
+|stn_depthrange|is_stationary()|depth_range_threshold|
+|stn_secs|is_stationary()|stationary_secs|
+|stn_rollwindow_secs|is_stationary()|rolling_range_secs|
+| | | |
+|stbl_settle_secs|TROLL_sensor_stable()|settling_secs|
+|stbl_min_secs|TROLL_sensor_stable()|min_median_secs|
+|stbl_range_thresholds|TROLL_sensor_stable()|range_thresh|
+ 
+Default values for individual `range_thresh` and `slope_thresh` by parameter are given by `stability_ranges`:
+
+```{r Show Thresholds,echo=FALSE,include=TRUE}
 stability_ranges
 ```
-These may be updated by passing a named numeric vector
-```{r,echo=TRUE,include=TRUE}
+
+These may be updated by passing a named numeric vector. If we want to relax the `range_thresh` for dissolved oxygen as an example: 
+
+```{r custom range thresholds,echo=TRUE,include=TRUE, warning=FALSE}
 custom_ranges <- c('DO_mgL' = 0.2, 'pH_units' = 0.15)
 
 dat_final <- TROLL_profile_compiler(
   path = path,
-  depth_col = depth_m,
-  datetime_col = DateTime,
   stn_depthrange = 0.05,
-  stn_secs = 24,                                  # Note use of value from tuning above
-  stn_rollwindow_secs = 10,
-  stbl_min_secs = 5,
-  stbl_settle_secs = 10,
+  stn_secs = 24,                                   # Note use of value from tuning above
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
-  drop_cols = TRUE,
   plot = c(Final = FALSE, Stationary = FALSE)
 )
 ```
 
-If `summarize_data` is `FALSE`, output will just return the data with a "_stable" flag column for each parameter. 
-If `TRUE` a list is returned with both flagged and summary data:
+**Currently updating of slope thresholds is not allowed**
 
-```{r,echo=TRUE,include=TRUE}
+If `summarize_data` is `FALSE`, output will just return the raw dataframe with a "_stable" flag column for each parameter. It 
+always returns `Flagged_Data`, but the `Summary_Data` can be extracted from the output: 
+
+```{r summary table,echo=TRUE,include=TRUE}
 flag_data <- dat_final$Flagged_Data
 summary <- dat_final$Summary_Data
 
-summary
+knitr::kable(summary)
 ```
 
 The optional plotting should be used to visually ensure that each parameter was compiled as expected. 
 These plots are the classical view of profile data, with data values on the x axis and depth on the y-axis. 
 
-```{r,echo=FALSE, include=TRUE,fig.align='center', fig.width=4, fig.height=7}
+```{r final plots,echo=FALSE, include=TRUE,fig.align='center', fig.width=4, fig.height=7, warning=FALSE}
 dat_final <- TROLL_profile_compiler(
   path = path,
-  depth_col = depth_m,
-  datetime_col = DateTime,
-  stn_depthrange = 0.1,
-  stn_secs = 20,                                  # Note use of value from tuning above
-  stn_rollwindow_secs = 10,
-  stbl_min_secs = 5,
-  stbl_settle_secs = 10,
+  stn_depthrange = 0.05,
+  stn_secs = 24,                                   # Note use of value from tuning above
   stbl_range_thresholds = custom_ranges,           # Provide updated custom ranges
   summarize_data = TRUE,                           # Output will be a list w/ both flagged and summary data
-  drop_cols = TRUE,
   plot = c(Final = TRUE, Stationary = FALSE)
 )
 ```
