@@ -1,13 +1,8 @@
 plot_stability <- function(df,
                            value_col_sym,
                            value_flag_col,
-                           range_thresh){
-  # plt_df <- tibble::tibble(
-  #   DateTime = df$DateTime,
-  #   !!value_col_sym := df[[rlang::as_name(value_col_sym)]],
-  #   !!rlang::sym(value_flag_col) := df[[value_flag_col]],
-  #   is_stationary_status = df$is_stationary_status
-  # )
+                           range_thresh
+                           ){
 
   # Standardize data for plotting
   plt_df <- tibble::tibble(
@@ -30,9 +25,11 @@ plot_stability <- function(df,
   # value_flag_sym <- rlang::sym(value_flag_col)
 
   # Starter to place a horizontal line for visualizing range threshold on the plot at the median so one line at least always shows up within the plot window
-  rangelines <- stats::median(plt_df$value ,na.rm = TRUE)
-  rangelines <- c(rangelines - 0.5*range_thresh,
-                  rangelines + 0.5*range_thresh)
+  if(!is.na(range_thresh)){
+    rangelines <- stats::median(plt_df$value ,na.rm = TRUE)
+    rangelines <- c(rangelines - 0.5*range_thresh,
+                    rangelines + 0.5*range_thresh)
+  }
 
   p1 <-
     #############
@@ -50,12 +47,12 @@ plot_stability <- function(df,
     ) +
 
     # Add a lines representing the range threshold
-    ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[1], linetype = 'Range Threshold'),
-                        color = 'gray30') +
-    ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[2], linetype = 'Range Threshold'),
-                        color = 'gray30') +
-    ggplot2::scale_linetype_manual(name = NULL,
-                                   values = 2) +
+    # ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[1], linetype = 'Range Threshold'),
+    #                     color = 'gray30') +
+    # ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[2], linetype = 'Range Threshold'),
+    #                     color = 'gray30') +
+    # ggplot2::scale_linetype_manual(name = NULL,
+    #                                values = 2) +
     # Add titles
     ggplot2::labs(x = 'Time of Day',
                   y = rlang::as_name(value_col_sym)) +
@@ -70,6 +67,17 @@ plot_stability <- function(df,
       legend.spacing.y = ggplot2::unit(0.1, "cm"), # Small positive value prevents overlap
       legend.background = ggplot2::element_blank()
     )
+
+  if(!is.na(range_thresh)){
+    p1 <- p1 +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[1], linetype = 'Range Threshold'),
+                          color = 'gray30') +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = rangelines[2], linetype = 'Range Threshold'),
+                          color = 'gray30') +
+      ggplot2::scale_linetype_manual(name = NULL,
+                                     values = 2)
+  }
+
   print(p1)
 }
 
@@ -186,6 +194,7 @@ TROLL_sensor_stable <- function(df,
   value_flag_col <- paste0(value_name,"_stable")
 
   optical_param <- is_optical(value_name)
+
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
   if(is.null(slope_thresh)){
     slope_thresh <- stability_ranges$slope[stability_ranges$param == value_name]
@@ -206,6 +215,10 @@ TROLL_sensor_stable <- function(df,
 
     # If the default is way too big, make it smaller so plotting works
     range_thresh <- min(range_thresh,max(df[[value_col]]) * 0.8)
+  }
+  # Override range_thresh for optical params
+  if(optical_param){
+    range_thresh <- NA
   }
   # 1. --- Input/Validation checks --- ----
 
@@ -238,8 +251,10 @@ TROLL_sensor_stable <- function(df,
     stop('"slope_thresh" must be a single positive numeric value.')
   }
 
-  if(!is.numeric(range_thresh) || length(range_thresh) != 1 || is.na(range_thresh) || range_thresh < 0){
-    stop('"range_thresh" must be a single positive numeric value.')
+  if(!optical_param){
+    if(!is.numeric(range_thresh) || length(range_thresh) != 1 || is.na(range_thresh) || range_thresh < 0){
+      stop('"range_thresh" must be a single positive numeric value.')
+    }
   }
 
   # Check that stationary blocks exist with fully stationary status (999)
