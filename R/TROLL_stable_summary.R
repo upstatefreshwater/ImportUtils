@@ -92,10 +92,10 @@ TROLL_stable_summary <- function(df,
             NA_real_
           } else {
             out <- summary_fn(vals, na.rm = TRUE)
-            if (!is.null(sig_digits)) round(out, digits) else out
+            if (!is.null(digits)) round(out, digits) else out
           }
         },
-        .names = "{.col}_median"
+        .names = "{.col}"
       ),
       .groups = "drop"
     )
