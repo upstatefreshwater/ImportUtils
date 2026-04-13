@@ -22,15 +22,22 @@ TROLL_sensor_stable(
 \item{value_col}{Unquoted name of the sensor column to evaluate for stability
 (e.g., \code{pH_units}, \code{temp_C}, \code{sp_conductivity_uScm}).}
 
-\item{min_median_secs}{Minimum duration (seconds) of observations required to compute
-stability statistics. This value is converted internally to the minimum
-number of observations required in a stationary block. Default is \code{5}.}
+\item{min_median_secs}{Numeric. Minimum duration (seconds) of data to retain
+at the end of each stationary block. If stability criteria are not met,
+this trailing window is still flagged as stable and used for summary
+calculations. Default is \code{5}.}
 
-\item{slope_thresh}{Maximum allowable absolute slope (units per minute) for
-stable measurements. Default is \code{0.05}.}
+\item{slope_thresh}{Numeric. Maximum allowable absolute slope (units per minute)
+for stable measurements. If \code{NULL}, a parameter-specific default is
+retrieved from \code{stability_ranges}.}
 
-\item{range_thresh}{Maximum allowable range (max - min) of values within the
-evaluation window for stability. Default is \code{0.02}.}
+\item{range_thresh}{Numeric. Maximum allowable range (max - min) within the
+evaluation window. If \code{NULL}, a parameter-specific default is retrieved
+from \code{stability_ranges}.}
+
+\item{settling_secs}{Numeric. Number of seconds to remove from the start
+of each stationary block to allow sensor equilibration. These observations
+are flagged with \code{is_stationary_status = 888}.}
 
 \item{drop_cols}{Logical. If \code{TRUE} (default), intermediate diagnostic
 columns used during slope and range calculations are removed from the
@@ -39,14 +46,23 @@ returned data frame.}
 \item{verbose}{Logical. If \code{TRUE}, prints the depths where stationary
 blocks were identified.}
 
-\item{plot}{Logical. If \code{TRUE}, produces a diagnostic stability plot
-using \code{plot_stability()}.}
+\item{plot}{Logical. If \code{TRUE}, generates a diagnostic plot using
+\code{plot_stability()}. Intended for tuning and debugging, not
+for final analysis outputs.}
 }
 \value{
-A data frame with the original input data plus a logical stability flag
-column named \code{<value_col>_stable}. If \code{drop_cols = FALSE},
-additional diagnostic columns describing slope, range, and window
-metadata are included.
+A data frame containing the original input data with an added logical column
+\code{<value_col>_stable}. This column indicates whether each observation
+meets the stability criteria.
+
+If \code{drop_cols = FALSE}, additional diagnostic columns are included:
+\itemize{
+  \item \code{slope}: slope of the evaluation window
+  \item \code{range}: value range within the window
+  \item \code{n_used}: number of observations used
+  \item \code{n_dropped}: number of leading observations removed
+  \item \code{slope_ok}, \code{range_ok}: logical threshold checks
+}
 }
 \description{
 Evaluates whether sensor measurements collected during stationary profiling
@@ -55,23 +71,27 @@ within each stationary block identified by \code{is_stationary()}, and the
 function flags observations that meet both slope and range criteria.
 }
 \details{
-For each stationary block, the function iteratively calculates slope
-(units per minute) and value range, starting with the enitre stationary block,
-and then dropping one observation at a time, until `slope_thresh` and `range_thresh`
-are both met. If both metrics fall within the specified thresholds,
-the observation and all subsequent rows in that block are flagged as stable.
+For each stationary block, slope (units per minute) and value range are
+calculated iteratively using progressively smaller windows, beginning with
+the full stationary block and removing leading observations.
 
-A minimum duration of data can be enforced using \code{min_median_secs}, which is
-converted internally to a minimum number of observations based on the sampling
-interval. If both `slope_thresh` and `range_thresh` cannot be met, the output
-will be flagged as `<data_column_name>_stable` for only the `min_median_secs` before
-the sonde is in motion again.
+A minimum tail duration defined by \code{min_median_secs} is always retained.
+The function searches for the earliest point in the block where both
+\code{slope_thresh} and \code{range_thresh} are satisfied, and flags that
+observation and all subsequent observations as stable.
 
-This function requires that stationary blocks have already been identified
-using \code{\link{is_stationary}}.
+For optical parameters (e.g., turbidity, chlorophyll, fluorescence),
+all observations within stationary periods (after settling removal) are
+flagged as stable. Range-based criteria are not applied, and slope is used
+only to generate diagnostic warnings.
 
-The function requires the following columns in \code{df}:
+For non-optical sensors, the function searches until `slope_thresh` and
+`range_thresh` are both met concurrently, and marks the remainder of the
+stationary block at "stable". If neither threshold can be met, the final
+\code{min_median_secs} of data within the stationary block are retained and
+flagged as stable.
 
+The input data frame must contain the following columns:
 \itemize{
   \item \code{DateTime}
   \item \code{depth_m}
@@ -81,12 +101,15 @@ The function requires the following columns in \code{df}:
   \item the column specified by \code{value_col}
 }
 
-Observations containing \code{NA} in \code{value_col} are excluded from
-stability calculations.
+Observations with \code{NA} values in \code{value_col} are excluded
+from stability calculations.
 
-A new logical column is added to the output named
-\code{<value_col>_stable}, indicating whether each observation meets
-the stability criteria.
+This function requires that stationary blocks have already been identified
+using \code{\link{is_stationary}}.Stability calculations are performed only on
+observations where \code{is_stationary_status == 999}, i.e., fully stationary data
+after removal of the initial settling period. The function will error if any
+stationary block does not contain sufficient duration (after settling removal)
+to satisfy \code{min_median_secs}.
 }
 \examples{
 \dontrun{

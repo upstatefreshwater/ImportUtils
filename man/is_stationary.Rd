@@ -31,8 +31,6 @@ is_stationary(
 \item{drop_cols}{Logical. If TRUE, intermediate columns used for computation are removed from the output. Default is `TRUE`.}
 
 \item{plot}{Logical. If TRUE, produces plots showing depth and rolling range with stationary periods highlighted. Default is `FALSE`.}
-
-\item{start_trim_secs}{Numeric. Number of seconds to trim from the start of stationary blocks to remove initial jumps. Default is `15`.}
 }
 \value{
 A data frame identical to `df` but with additional columns (provided `drop_cols` is \code{TRUE}:
@@ -58,7 +56,6 @@ depth and rolling range over time.
 The function first calculates the sampling interval based on lagged differences of the `datetime_col`.
 It then computes a rolling range of depth values across a window size of length = `rolling_range_secs`.
 It identifies candidate stationary periods where the rolling range is below `depth_range_threshold`.
-The `start_trim_secs` parameter enables trimming of initial observations in a stationary block.
 Blocks shorter than `stationary_secs` are flagged with `is_stationary_status` equal to seconds stationary.
 Blocks longer than `stationary_secs` are flagged as 999. If the sampling interval exceeds 30 seconds,
 the sonde is assumed to be fixed, and all rows are returned with `is_stationary_status = 999`.
