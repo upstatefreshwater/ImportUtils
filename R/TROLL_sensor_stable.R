@@ -61,10 +61,14 @@ plot_stability <- function(df,
                   y = rlang::as_name(value_col_sym)) +
 
     ggplot2::theme_bw() +
-    ggplot2::theme(legend.position = "right",
-                   legend.box = "vertical",          # Ensures legends are stacked vertically
-                   legend.background = ggplot2::element_blank(),
-                   legend.spacing.y = ggplot2::unit(-1, "cm") # Use a negative value to pull them closer
+    ggplot2::theme(
+      legend.position = "right",
+      legend.box = "vertical",
+      legend.box.just = "left",      # Keeps legends aligned even if widths differ
+      legend.margin = ggplot2::margin(0, 0, 0, 0),
+      legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+      legend.spacing.y = ggplot2::unit(0.1, "cm"), # Small positive value prevents overlap
+      legend.background = ggplot2::element_blank()
     )
   print(p1)
 }
