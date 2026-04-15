@@ -5,3 +5,6 @@
 ^Meta$
 ^inst/stashed_code$
 ^inst/GIT_HELL\.txt(\.bak)?$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
