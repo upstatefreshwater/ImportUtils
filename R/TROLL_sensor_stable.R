@@ -260,26 +260,39 @@ TROLL_sensor_stable <- function(df,
   optical_param <- is_optical(value_name)
 
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
+  # - Slope
   if(is.null(slope_thresh)){
-    slope_thresh <- stability_ranges$slope[stability_ranges$param == value_name]
+    # - Safe join filter to extract from internal data
+    match_idx <- which(stability_ranges$param == value_name)
 
-    # Error for missing default
-    if(length(slope_thresh) != 1){
+    if(length(match_idx) == 0){
       stop(paste0("No slope threshold found for ", value_name))
     }
+
+    # If exists in internal data extract
+    slope_thresh <- stability_ranges$slope[match_idx[1]] # Take the first match
   }
 
+  # - Range
   if(is.null(range_thresh)){
-    range_thresh <- stability_ranges$range[stability_ranges$param == value_name]
+    # - Safe join filter to extract from internal data
+    match_idx <- which(stability_ranges$param == value_name)
 
-    # Error for missing default
-    if(length(range_thresh) != 1){
+    if(length(match_idx) == 0){
       stop(paste0("No range threshold found for ", value_name))
     }
 
-    # If the default is way too big, make it smaller so plotting works
-    range_thresh <- min(range_thresh,max(df[[value_col]]) * 0.8)
+    range_thresh <- stability_ranges$range[match_idx[1]] # Take the first match
+
+    # Add na.rm = TRUE to the max calculation
+    max_val <- max(df[[value_name]], na.rm = TRUE)
+
+    # Guard against -Inf or NA from the data
+    if(!is.infinite(max_val) && !is.na(max_val)){
+      range_thresh <- min(range_thresh, max_val * 0.8)
+    }
   }
+
   # Override range_thresh for optical params
   if(optical_param){
     range_thresh <- NA
