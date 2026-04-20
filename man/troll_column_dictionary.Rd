@@ -20,6 +20,10 @@ A tibble with `r nrow(troll_column_dictionary)` rows and 6 columns:
   water quality parameter.}
   \item{stbl_calc}{Logical. Indicates if the parameter is eligible for
   sensor stability flagging in \code{TROLL_sensor_stable()}.}
+  \item{derived_param}{Logical. Indicates if the parameter is derived
+  mathematically from a measured parameter.}
+  \item{stability_source}{Character. For derived parameters, the measured
+  parameter used to flag stable observations.}
 }
 }
 \usage{

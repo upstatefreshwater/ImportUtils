@@ -9,7 +9,7 @@ is_stationary(
   depth_col = depth_m,
   datetime_col = DateTime,
   depth_range_threshold = 0.05,
-  stationary_secs = 60,
+  stationary_secs = 45,
   rolling_range_secs = 10,
   drop_cols = TRUE,
   plot = FALSE

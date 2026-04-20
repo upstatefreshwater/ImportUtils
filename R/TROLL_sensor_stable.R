@@ -254,10 +254,22 @@ TROLL_sensor_stable <- function(df,
 
   # 0. --- Tidy Eval --- ----
   value_col <- rlang::ensym(value_col)
-  value_name <- rlang::as_name(value_col)
+  value_name <- rlang::as_name(value_col) # Requested parameter
   value_flag_col <- paste0(value_name,"_stable")
+###########FIX###############
 
-  optical_param <- is_optical(value_name)
+  source_name <- value_name
+
+  if(value_name %in% names(derived_map)){
+    raw_candidate <- derived_map[[value_name]]
+
+    if(raw_candidate %in% names(df)){
+      source_name <- raw_candidate
+    }
+  }
+
+  optical_param <- is_optical(source_name)
+  # optical_param <- is_optical(value_name)
 
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
   # - Slope
@@ -412,7 +424,7 @@ TROLL_sensor_stable <- function(df,
   # Pre-allocate output object and warnings collector
   out_list <- vector("list", length(dat_grouped))
 
-  slope_issues <- list()
+  slope_issues <- list() # Optical param slope warnings collector
   # >> Loop through each stationary block ----
   for (i in seq_along(dat_grouped)) {# seq_along gives list length as 1:length(list)
     # **** Extract one stationary group of data within a loop ----
@@ -533,7 +545,6 @@ TROLL_sensor_stable <- function(df,
 
       if(!is.na(full_slope) && abs(full_slope) > slope_thresh){
 
-###########
         slope_issues[[length(slope_issues) + 1]] <- list(
           depth = block_depth,
           slope = full_slope
