@@ -254,37 +254,53 @@ TROLL_sensor_stable <- function(df,
 
   # 0. --- Tidy Eval --- ----
   value_col <- rlang::ensym(value_col)
-  value_name <- rlang::as_name(value_col) # Requested parameter
-  value_flag_col <- paste0(value_name,"_stable")
-###########FIX###############
 
+  value_name <- rlang::as_name(value_col)      # user-requested parameter
+  value_flag_col <- paste0(value_name, "_stable")
+
+  # default = evaluate requested parameter itself
   source_name <- value_name
+  use_fallback_param <- FALSE # default = source column exists
 
-  if(value_name %in% names(derived_map)){
-    raw_candidate <- derived_map[[value_name]]
+  # look up requested parameter in dictionary
+  dict_row <- troll_column_dictionary |>
+    dplyr::filter(canonical == value_name)
 
-    if(raw_candidate %in% names(df)){
-      source_name <- raw_candidate
-    }
+  if(nrow(dict_row) > 1){
+    stop("Duplicate canonical names found in troll_column_dictionary.")
   }
 
-  optical_param <- is_optical(source_name)
-  # optical_param <- is_optical(value_name)
+  if(nrow(dict_row) == 1){
+    # Identify the stability source if parameter is derived
+    src <- dict_row$stability_source
+
+    # Set logical to TRUE if source column does not exist in data to use the derived column for stability detection
+    use_fallback_param <- is.na(src) || !(src %in% names(df))
+
+    # If the source data for a derived parameter exists, use it
+    if(!use_fallback_param){
+      # Do nothing (src used to extract calc_name later)
+    }
+  }
+  # Create a single name to use for calculations downstream
+  # If using a derived parameter, keep calc_name as the user provided value, else use the source
+  calc_name <- if(use_fallback_param) value_name else src
+
+  optical_param <- is_optical(calc_name)
 
   # 00.--- Use default slope/range thresholds if NULL arg --- ----
   # - Slope
   if(is.null(slope_thresh)){
     # - Safe join filter to extract from internal data
-    match_idx <- which(stability_ranges$param == value_name)
+    match_idx <- which(stability_ranges$param == calc_name)
 
     if(length(match_idx) == 0){
-      stop(paste0("No slope threshold found for ", value_name))
+      stop(paste0("No slope threshold found for ", calc_name))
     }
 
     # If exists in internal data extract
     slope_thresh <- stability_ranges$slope[match_idx[1]] # Take the first match
   }
-
   # - Range
   if(is.null(range_thresh)){
     # - Safe join filter to extract from internal data
