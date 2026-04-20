@@ -18,7 +18,7 @@ troll_column_dictionary <- tibble::tribble(
   # Derived Parameters
   "^RDO Saturation",                          "DO_per",                  FALSE,     FALSE,       TRUE,   FALSE,       TRUE,          'DO_mgL',
 "^Chlorophyll-a Concentration( \\(µg/L\\))?$","chlorophyll_ugL",         FALSE,     FALSE,       TRUE,   FALSE,       TRUE,          'chlorophyll_RFU',    # CHECK
-"^BGA-PC Concentration( \\(µg/L\\))?$",       "bga_fluorescence_ugL",    FALSE,     FALSE,       TRUE,   FALSE,       TRUE,          'bga_fluoresence_RFU',# CHECK
+"^BGA-PC Concentration( \\(µg/L\\))?$",       "bga_fluorescence_ugL",    FALSE,     FALSE,       TRUE,   FALSE,       TRUE,          'bga_fluorescence_RFU',# CHECK
   "^Chlorophyll Cells",                       "chlorophyll_cells",       FALSE,     FALSE,       FALSE,  FALSE,       TRUE,          'chlorophyll_RFU',    # CHECK
   "^Total Dissolved Solids \\(ppt\\)$",       "total_diss_solids_ppt",   FALSE,     FALSE,       FALSE,  FALSE,       TRUE,          'temperature_C',      # CHECK
   "^Total Suspended Solids \\(ppt\\)$",       "total_susp_solids_ppt",   FALSE,     FALSE,       FALSE,  FALSE,       TRUE,          'temperature_C',      # CHECK
