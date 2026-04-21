@@ -202,3 +202,60 @@ calc_slope <- function(x, y){
   stats::cov(x, y) / v
 }
 
+
+# Resolve Stability Context ----
+resolve_stability_context <- function(df,
+                                      value_name,
+                                      dict,
+                                      stability_ranges) {
+
+  # ---- defaults ----
+  source_name <- value_name
+  use_fallback <- FALSE
+
+  # ---- lookup in dictionary ----
+  dict_row <- dict |>
+    dplyr::filter(canonical == value_name)
+
+  if(nrow(dict_row) > 1){
+    stop("Duplicate canonical names found in dictionary.")
+  }
+
+  if(nrow(dict_row) == 1){
+
+    src <- dict_row$stability_source
+
+    use_fallback <- is.na(src) || !(src %in% names(df))
+
+    if(!use_fallback){
+      source_name <- src
+    }
+  }
+
+  # ---- final calculation target ----
+  calc_name <- if(use_fallback) value_name else source_name
+
+  # ---- optical classification ----
+  optical_param <- is_optical(calc_name)
+
+  # ---- slope threshold ----
+  match_idx <- which(stability_ranges$param == calc_name)
+
+  if(length(match_idx) == 0){
+    stop(paste0("No slope/range thresholds found for ", calc_name))
+  }
+
+  slope_thresh <- stability_ranges$slope[match_idx[1]]
+  range_thresh <- stability_ranges$range[match_idx[1]]
+
+  # ---- return context ----
+  list(
+    value_name = value_name,
+    source_name = source_name,
+    calc_name = calc_name,
+    use_fallback = use_fallback,
+    optical_param = optical_param,
+    slope_thresh = slope_thresh,
+    range_thresh = range_thresh
+  )
+}

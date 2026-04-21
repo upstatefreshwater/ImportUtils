@@ -259,32 +259,57 @@ TROLL_sensor_stable <- function(df,
   value_flag_col <- paste0(value_name, "_stable")
 
   # default = evaluate requested parameter itself
-  source_name <- value_name
-  use_fallback_param <- FALSE # default = source column exists
+  use_requested_param <- FALSE # default = source column exists
 
   # look up requested parameter in dictionary
+  # First extract requested
   dict_row <- troll_column_dictionary |>
     dplyr::filter(canonical == value_name)
 
+  # Check if requested parameter exists
+  if(nrow(dict_row) == 0){
+    stop(
+      paste0(
+        "Parameter '", value_name, "' not found in `troll_column_dictionary`. ",
+        "Add a dictionary row before running `TROLL_sensor_stable()`."
+      )
+    )
+  }
+
+  # Check if requested parameter is a duplicate
   if(nrow(dict_row) > 1){
     stop("Duplicate canonical names found in troll_column_dictionary.")
   }
 
-  if(nrow(dict_row) == 1){
-    # Identify the stability source if parameter is derived
-    src <- dict_row$stability_source
+  # Identify the stability source if parameter is derived
+  src <- dict_row$stability_source
 
-    # Set logical to TRUE if source column does not exist in data to use the derived column for stability detection
-    use_fallback_param <- is.na(src) || !(src %in% names(df))
+  # Set logical to TRUE if source column does not exist in data
+  # (use the derived column for stability detection)
+  use_requested_param <- is.na(src) || !(src %in% names(df))
 
-    # If the source data for a derived parameter exists, use it
-    if(!use_fallback_param){
-      # Do nothing (src used to extract calc_name later)
+  # Create a single name to use for calculations downstream
+  # If source data exists use source; otherwise use the requested parameter
+  if(use_requested_param){
+    calc_name <- value_name
+    if(verbose){
+      message(
+        "Stability detection for ", value_name,
+        " is based on derived values because source column ",
+        src,
+        " is missing."
+      )
+    }
+  } else {
+    calc_name <- src
+    if(verbose) {
+      message('Derived parameter provided:\n',
+              value_name,
+              '\n with the measured source column:\n',
+              src,
+              '\n utilized for stability detection.')
     }
   }
-  # Create a single name to use for calculations downstream
-  # If using a derived parameter, keep calc_name as the user provided value, else use the source
-  calc_name <- if(use_fallback_param) value_name else src
 
   optical_param <- is_optical(calc_name)
 
@@ -304,16 +329,16 @@ TROLL_sensor_stable <- function(df,
   # - Range
   if(is.null(range_thresh)){
     # - Safe join filter to extract from internal data
-    match_idx <- which(stability_ranges$param == value_name)
+    match_idx <- which(stability_ranges$param == calc_name)
 
     if(length(match_idx) == 0){
-      stop(paste0("No range threshold found for ", value_name))
+      stop(paste0("No range threshold found for ", calc_name))
     }
 
     range_thresh <- stability_ranges$range[match_idx[1]] # Take the first match
 
     # Add na.rm = TRUE to the max calculation
-    max_val <- max(df[[value_name]], na.rm = TRUE)
+    max_val <- max(df[[calc_name]], na.rm = TRUE)
 
     # Guard against -Inf or NA from the data
     if(!is.infinite(max_val) && !is.na(max_val)){
@@ -334,7 +359,7 @@ TROLL_sensor_stable <- function(df,
   }
 
   # Check required columns exist
-  req_cols <- c('DateTime','depth_m','stationary_depth','stationary_block_id','is_stationary_status',value_name)
+  req_cols <- c('DateTime','depth_m','stationary_depth','stationary_block_id','is_stationary_status',calc_name)
 
   if(!all(req_cols %in% names(df))){
 
@@ -426,7 +451,7 @@ TROLL_sensor_stable <- function(df,
     dplyr::ungroup() |>
     dplyr::filter(
       is_stationary_status == 999,
-      !is.na(.data[[value_name]])  # remove rows with NA in the value_col data
+      !is.na(.data[[calc_name]])  # remove rows with NA in the value_col data
     )
   # 4. --- Group data into blocks, and split groups into a list --- ----
 
@@ -482,7 +507,7 @@ TROLL_sensor_stable <- function(df,
 
     # assign sensor data and time to variables
     x_all <- stable_group_dat$t
-    y_all <- stable_group_dat[[value_name]]
+    y_all <- stable_group_dat[[calc_name]]
 
     # Compute overall slope for optical params
     if(optical_param){
@@ -593,7 +618,7 @@ TROLL_sensor_stable <- function(df,
     slopes <- vapply(slope_issues, `[[`, numeric(1), "slope")
 
     msg <- paste0(
-      value_name, " slope exceeded threshold at:\n",
+      value_name, " stability source (", calc_name, ") slope exceeded threshold at:\n",
       paste0("  ", round(depths, 2), " m (", round(slopes, 3), " units/min)", collapse = "\n"),
       "\n\nConsider validating data or adjusting trimming."
     )
