@@ -47,4 +47,4 @@ troll_column_dictionary <- tibble::tribble(
   "^Trollcom_temperature_C$",                 "Trollcom_temperature_C",  FALSE,     TRUE,        FALSE,   FALSE,      FALSE,          NA
 )
 
-usethis::use_data(troll_column_dictionary,overwrite = TRUE)
+# usethis::use_data(troll_column_dictionary,overwrite = TRUE)

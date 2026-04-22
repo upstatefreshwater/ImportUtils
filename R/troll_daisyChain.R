@@ -23,8 +23,9 @@
 # # dplyr::glimpse(dat_stationary)
 # #
 # dat_stable <- TROLL_sensor_stable(df = dat_stationary,
-#                                   value_col = bga_fluorescence_RFU,
+#                                   value_col = DO_per,
 #                                   # min_secs = 1,
+#                                   verbose = T,
 #                                   plot = TRUE)
 # # dplyr::glimpse(dat_stable)
 #
