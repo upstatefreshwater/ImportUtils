@@ -244,7 +244,7 @@ across all parameter columns within `TROLL_profile_compiler` using default range
 In this section, the function is applied outside of the compiler to demonstrate how tuning of `TROLL_sensor_stable` 
 may be applied for individual parameters, if necessary. 
 
-#### How Stability Detection Works 
+### How Stability Detection Works 
 
 At the core, stability detection functions the same across all data parameters: 
 
@@ -309,6 +309,35 @@ The function here warns us that the slope threshold was exceeded at 3 stationary
 
 There are no range threshold lines in **Figure 5** because it is not used for optical sensors. 
 
+### Derived Parameters
+
+A number of parameters may be estimated using correlations to measured parameters (**Table 1**). 
+
+**Table 1**: Derived Parameters
+
+|Parameter|units|Derived From|Stability Source|Fully Supported|
+|:---|:---|:---|:---|:---|
+|Total Dissolved Solids|ppt|Conductivity & Temperature|Temperature|YES|
+|Total Suspended Solids|ppt|Turbidity & Temperature|Temperature|YES|
+|BGA PC concentration|ug/L|Relative Fluorescence|BGA (RFU)|YES|
+|BGA PE concentration|ug/L|Relative Fluorescence|BGA (RFU)|YES|
+|Chlorophyll concentration|ug/L|Relative Fluorescence|Chlorophyll (RFU)|YES|
+|Chlorophyll cell count|cells/mL|Relative Fluorescence|Chlorophyll (RFU)|YES|
+|FDOM concentration|ug/L|Relative Fluorescence|Chlorophyll(RFU)|NO|
+|Crude Oil Concentration|ug/L|Relative Fluorescence|Chlorophyll (RFU)|NO|
+
+Since derived parameters depend upon measured parameters, detecting stability is accomplished by simply using stable flags from 
+the requisite measured parameters (Stability Source in **Table 1**). If a provided dataframe does not contain the measured values column, 
+stability detection falls back to the use of the derived values to determine stability. **Since derived parameters are an estimate 
+based on correlations, best practice is to maintain the measured data columns used for derivations** so that stability detection may 
+operate on actual measurements. If a derived parameter is passed to `TROLL_sensor_stable()`, a message will be printed to the console
+when `verbose = TRUE`, indicating if a measured parameter was used for stability detection, or if fallback to the derived parameter was
+necessary. 
+
+```{r derived param stability, echo=T}
+# Show how fallback works
+```
+
 ## Step 5: Summarize Stable Data
 
 With data flagged as stable in hand, the `TROLL_stable_summary` function compiles the output into a single value (default = median)
@@ -347,7 +376,7 @@ Instead of timeseries plots, the compiler function outputs classical "profile" p
 
 If the default values for any of the inputs needs to be tuned, they can updated: 
 
-**Table 1**: Input naming conventions among package functions. 
+**Table 2**: Input naming conventions among package functions. 
 
 |TROLL_profile_compiler|Other Package Function|Other Function Input|
 |:---|:---|:---|
