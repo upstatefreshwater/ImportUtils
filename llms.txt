@@ -1,0 +1,31 @@
+Does a bunch of stuff.
+
+# Package index
+
+## All functions
+
+- [`TROLL_profile_compiler()`](TROLL_profile_compiler.md) : Bulk Process
+  TROLL Sonde Profiles
+- [`TROLL_read_data()`](TROLL_read_data.md) : Read Aqua-Troll Data File
+- [`TROLL_rename_cols()`](TROLL_rename_cols.md) : Standardize TROLL Data
+  Column Names
+- [`TROLL_sensor_stable()`](TROLL_sensor_stable.md) : Identify Stable
+  Sensor Values Within Stationary Profiling Blocks
+- [`TROLL_stable_summary()`](TROLL_stable_summary.md) : Summarize stable
+  TROLL observations
+- [`combine_hobos()`](combine_hobos.md) : Combine HOBO Logger Datasets
+- [`hoboformat()`](hoboformat.md) : Format and Trim HOBO Logger Files
+- [`is_stationary()`](is_stationary.md) : Identify Stationary Periods in
+  Depth Data
+- [`plot_hobos()`](plot_hobos.md) : Plot HOBO Logger Data
+- [`stability_ranges`](stability_ranges.md) : Default Range Values For
+  Flagging Sensor Stability
+- [`troll_column_dictionary`](troll_column_dictionary.md) : Aqua TROLL
+  Column Mapping and Metadata Dictionary
+
+# Articles
+
+### All vignettes
+
+- [TROLL Profiles Quick Start](TROLL-QuickStart.md):
+- [Tuning TROLL Workflow](TROLL-workflow.md):
