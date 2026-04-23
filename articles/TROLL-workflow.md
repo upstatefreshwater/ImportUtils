@@ -290,7 +290,8 @@ should be (2 seconds in this example is correct). Stationary periods are
 calculated based on time, so large jumps are not a problem as long as
 the sonde was held in the same position.
 
-### Now we have flagged stationary depth from 0 - 8 meters at ~ 1.0 m intervals.
+**Now we have flagged stationary depth from 0 - 8 meters at ~ 1.0 m
+intervals.**
 
 ## Step 4: Detect Stable Sensor Data Inside Stationary Blocks
 
@@ -400,19 +401,20 @@ used for optical sensors.
 
 ### Derived Parameters
 
-A number of parameters may be estimated using correlations to measured
-parameters (**Table 1**).
+A number of parameters are estimated by the Aqua Troll Sonde using
+correlations to measured parameters (**Table 1**).
 
-**Table 1**: Derived Parameters
+**Table 1**: Derived Parameters. “Fully Supported” indicates parameters
+that have been tested by the developers of this package.
 
 | Parameter                 | units    | Derived From               | Stability Source  | Fully Supported |
 |:--------------------------|:---------|:---------------------------|:------------------|:----------------|
-| Total Dissolved Solids    | ppt      | Conductivity & Temperature | Temperature       | YES             |
-| Total Suspended Solids    | ppt      | Turbidity & Temperature    | Temperature       | YES             |
+| Total Dissolved Solids    | ppt      | Conductivity & Temperature | Temperature       | NO              |
+| Total Suspended Solids    | ppt      | Turbidity & Temperature    | Temperature       | NO              |
 | BGA PC concentration      | ug/L     | Relative Fluorescence      | BGA (RFU)         | YES             |
 | BGA PE concentration      | ug/L     | Relative Fluorescence      | BGA (RFU)         | YES             |
 | Chlorophyll concentration | ug/L     | Relative Fluorescence      | Chlorophyll (RFU) | YES             |
-| Chlorophyll cell count    | cells/mL | Relative Fluorescence      | Chlorophyll (RFU) | YES             |
+| Chlorophyll cell count    | cells/mL | Relative Fluorescence      | Chlorophyll (RFU) | NO              |
 | FDOM concentration        | ug/L     | Relative Fluorescence      | Chlorophyll(RFU)  | NO              |
 | Crude Oil Concentration   | ug/L     | Relative Fluorescence      | Chlorophyll (RFU) | NO              |
 
@@ -431,7 +433,45 @@ if a measured parameter was used for stability detection, or if fallback
 to the derived parameter was necessary.
 
 ``` r
-# Show how fallback works
+# Stability for derived parameter when the measured column is present
+derived_dat <-  TROLL_sensor_stable(df = dat_stationary,
+                                    value_col = DO_per,
+                                    verbose = TRUE,     # Print informative messages to console
+                                    plot = FALSE)
+#> Derived parameter provided:
+#> DO_per
+#>  with the measured source column:
+#> DO_mgL
+#>  utilized for stability detection.
+#> Stationary depths at:
+#> 0.09
+#> 1.04
+#> 1.94
+#> 2.9
+#> 3.91
+#> 4.89
+#> 5.84
+#> 6.83
+#> 7.68
+#> found in the data
+
+# Fallback to use derived values if measured column is missing
+fallback_dat <- TROLL_sensor_stable(df = dat_stationary |> dplyr::select(-DO_mgL),
+                                    value_col = DO_per,
+                                    verbose = TRUE,
+                                    plot = FALSE)
+#> Stability detection for DO_per is based on derived values because source column DO_mgL is missing.
+#> Stationary depths at:
+#> 0.09
+#> 1.04
+#> 1.94
+#> 2.9
+#> 3.91
+#> 4.89
+#> 5.84
+#> 6.83
+#> 7.68
+#> found in the data
 ```
 
 ## Step 5: Summarize Stable Data

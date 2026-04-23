@@ -354,11 +354,8 @@ glitching. This is only an issue if the “Dominant Interval” is not
 detected as what it should be (2 seconds in this example is correct).
 Stationary periods are calculated based on time, so large jumps are not
 a problem as long as the sonde was held in the same position.</p>
-</div>
-<div class="section level3">
-<h3 id="now-we-have-flagged-stationary-depth-from-0---8-meters-at-1-0-m-intervals-">Now we have flagged stationary depth from 0 - 8 meters at ~ 1.0 m
-intervals.<a class="anchor" aria-label="anchor" href="#now-we-have-flagged-stationary-depth-from-0---8-meters-at-1-0-m-intervals-"></a>
-</h3>
+<p><strong>Now we have flagged stationary depth from 0 - 8 meters at ~
+1.0 m intervals.</strong></p>
 </div>
 </div>
 <div class="section level2">
@@ -466,9 +463,11 @@ because it is not used for optical sensors.</p>
 <div class="section level3">
 <h3 id="derived-parameters">Derived Parameters<a class="anchor" aria-label="anchor" href="#derived-parameters"></a>
 </h3>
-<p>A number of parameters may be estimated using correlations to
-measured parameters (<strong>Table 1</strong>).</p>
-<p><strong>Table 1</strong>: Derived Parameters</p>
+<p>A number of parameters are estimated by the Aqua Troll Sonde using
+correlations to measured parameters (<strong>Table 1</strong>).</p>
+<p><strong>Table 1</strong>: Derived Parameters. “Fully Supported”
+indicates parameters that have been tested by the developers of this
+package.</p>
 <table class="table">
 <colgroup>
 <col width="20%">
@@ -490,14 +489,14 @@ measured parameters (<strong>Table 1</strong>).</p>
 <td align="left">ppt</td>
 <td align="left">Conductivity &amp; Temperature</td>
 <td align="left">Temperature</td>
-<td align="left">YES</td>
+<td align="left">NO</td>
 </tr>
 <tr class="even">
 <td align="left">Total Suspended Solids</td>
 <td align="left">ppt</td>
 <td align="left">Turbidity &amp; Temperature</td>
 <td align="left">Temperature</td>
-<td align="left">YES</td>
+<td align="left">NO</td>
 </tr>
 <tr class="odd">
 <td align="left">BGA PC concentration</td>
@@ -525,7 +524,7 @@ measured parameters (<strong>Table 1</strong>).</p>
 <td align="left">cells/mL</td>
 <td align="left">Relative Fluorescence</td>
 <td align="left">Chlorophyll (RFU)</td>
-<td align="left">YES</td>
+<td align="left">NO</td>
 </tr>
 <tr class="odd">
 <td align="left">FDOM concentration</td>
@@ -557,7 +556,45 @@ to the console when <code>verbose = TRUE</code>, indicating if a
 measured parameter was used for stability detection, or if fallback to
 the derived parameter was necessary.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Show how fallback works</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Stability for derived parameter when the measured column is present</span></span>
+<span><span class="va">derived_dat</span> <span class="op">&lt;-</span>  <span class="fu"><a href="../reference/TROLL_sensor_stable.html">TROLL_sensor_stable</a></span><span class="op">(</span>df <span class="op">=</span> <span class="va">dat_stationary</span>,</span>
+<span>                                    value_col <span class="op">=</span> <span class="va">DO_per</span>,</span>
+<span>                                    verbose <span class="op">=</span> <span class="cn">TRUE</span>,     <span class="co"># Print informative messages to console</span></span>
+<span>                                    plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Derived parameter provided:</span></span>
+<span><span class="co">#&gt; DO_per</span></span>
+<span><span class="co">#&gt;  with the measured source column:</span></span>
+<span><span class="co">#&gt; DO_mgL</span></span>
+<span><span class="co">#&gt;  utilized for stability detection.</span></span>
+<span><span class="co">#&gt; Stationary depths at:</span></span>
+<span><span class="co">#&gt; 0.09</span></span>
+<span><span class="co">#&gt; 1.04</span></span>
+<span><span class="co">#&gt; 1.94</span></span>
+<span><span class="co">#&gt; 2.9</span></span>
+<span><span class="co">#&gt; 3.91</span></span>
+<span><span class="co">#&gt; 4.89</span></span>
+<span><span class="co">#&gt; 5.84</span></span>
+<span><span class="co">#&gt; 6.83</span></span>
+<span><span class="co">#&gt; 7.68</span></span>
+<span><span class="co">#&gt; found in the data</span></span>
+<span></span>
+<span><span class="co"># Fallback to use derived values if measured column is missing</span></span>
+<span><span class="va">fallback_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/TROLL_sensor_stable.html">TROLL_sensor_stable</a></span><span class="op">(</span>df <span class="op">=</span> <span class="va">dat_stationary</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="op">-</span><span class="va">DO_mgL</span><span class="op">)</span>,</span>
+<span>                                    value_col <span class="op">=</span> <span class="va">DO_per</span>,</span>
+<span>                                    verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                    plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Stability detection for DO_per is based on derived values because source column DO_mgL is missing.</span></span>
+<span><span class="co">#&gt; Stationary depths at:</span></span>
+<span><span class="co">#&gt; 0.09</span></span>
+<span><span class="co">#&gt; 1.04</span></span>
+<span><span class="co">#&gt; 1.94</span></span>
+<span><span class="co">#&gt; 2.9</span></span>
+<span><span class="co">#&gt; 3.91</span></span>
+<span><span class="co">#&gt; 4.89</span></span>
+<span><span class="co">#&gt; 5.84</span></span>
+<span><span class="co">#&gt; 6.83</span></span>
+<span><span class="co">#&gt; 7.68</span></span>
+<span><span class="co">#&gt; found in the data</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
