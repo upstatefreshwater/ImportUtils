@@ -40,7 +40,7 @@
 #                        stbl_settle_secs = 10,
 #                        stbl_min_secs = 4,
 #                        drop_cols = TRUE,
-#                        summarize_data = F,
+#                        summarize_data = T,
 #                        plot = TRUE
 #                        )
 #
