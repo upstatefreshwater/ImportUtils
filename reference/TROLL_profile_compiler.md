@@ -125,8 +125,9 @@ order:
     [`TROLL_sensor_stable()`](TROLL_sensor_stable.md) for each parameter
     to identify "equilibrated" data points. Arguments for this step are
     prefixed with `stbl_`. Core parameters in data are automatically
-    detected from:
-    `troll_column_dictionary[troll_column_dictionary$stbl_calc==TRUE,]`.
+    detected from columns present in the data that are flagged as either
+    direct stability-calculation parameters (`stbl_calc`) or derived
+    parameters (`derived_param`) in `troll_column_dictionary`.
 
 4.  **Summarization:** If requested, calculates median values for stable
     windows at each depth using

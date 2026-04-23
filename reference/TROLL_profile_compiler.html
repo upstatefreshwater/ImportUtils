@@ -151,7 +151,9 @@ Default is <code>c(Final = FALSE, Stationary = FALSE)</code>.</p></dd>
 <li><p><b>Stability Evaluation:</b> Calls <code><a href="TROLL_sensor_stable.html">TROLL_sensor_stable()</a></code> for
   each parameter to identify "equilibrated" data points. Arguments for
   this step are prefixed with <code>stbl_</code>. Core parameters in data are
-  automatically detected from: <code>troll_column_dictionary[troll_column_dictionary$stbl_calc==TRUE,]</code>.</p></li>
+  automatically detected from columns present in the data that are flagged
+  as either direct stability-calculation parameters (<code>stbl_calc</code>) or
+  derived parameters (<code>derived_param</code>) in <code>troll_column_dictionary</code>.</p></li>
 <li><p><b>Summarization:</b> If requested, calculates median values for stable
   windows at each depth using <code><a href="TROLL_stable_summary.html">TROLL_stable_summary()</a></code>.</p></li>
 <li><p><b>Visualization:</b> Optionally generates diagnostic plots comparing raw
