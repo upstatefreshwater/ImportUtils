@@ -157,7 +157,9 @@ normalize_args <- function(plot,
 #'   \item \bold{Stability Evaluation:} Calls \code{TROLL_sensor_stable()} for
 #'   each parameter to identify "equilibrated" data points. Arguments for
 #'   this step are prefixed with \code{stbl_}. Core parameters in data are
-#'   automatically detected from: \code{troll_column_dictionary[troll_column_dictionary$stbl_calc==TRUE,]}.
+#'   automatically detected from columns present in the data that are flagged
+#'   as either direct stability-calculation parameters (\code{stbl_calc}) or
+#'   derived parameters (\code{derived_param}) in \code{troll_column_dictionary}.
 #'   \item \bold{Summarization:} If requested, calculates median values for stable
 #'   windows at each depth using \code{TROLL_stable_summary()}.
 #'   \item \bold{Visualization:} Optionally generates diagnostic plots comparing raw
@@ -270,7 +272,16 @@ TROLL_profile_compiler <- function(path,                                        
 
 
   # 3. --- Identify parameter columns in data --- ----
-  params <- names(dat_rename)[which(names(dat_rename) %in% troll_column_dictionary$canonical[troll_column_dictionary$stbl_calc])]
+  # Include both:
+  #  - direct stability-calculation parameters (stbl_calc = TRUE)
+  #  - derived parameters (derived_param = TRUE)
+  # so derived parameters can be evaluated in compiler workflows even when the
+  # measured source column is absent (fallback handled in TROLL_sensor_stable).
+  dict_params <- troll_column_dictionary |>
+    dplyr::filter(stbl_calc | derived_param) |>
+    dplyr::pull(canonical)
+
+  params <- names(dat_rename)[which(names(dat_rename) %in% dict_params)]
 
   if(length(params) <1 ){
     stop('\nNo sensor data columns identified. Column names must be standardized using the "TROLL_rename_cols" function.\n')
@@ -449,4 +460,3 @@ if (isTRUE(plot["Final"]) && summarize_data){
   if(!summarize_data) return(out)
   return(out_final)
 }
-
