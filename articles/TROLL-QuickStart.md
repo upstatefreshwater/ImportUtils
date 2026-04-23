@@ -17,18 +17,18 @@ dat <- TROLL_profile_compiler(
 # View summarized output
 summary <- dat$Summary_Data
 summary
-#> # A tibble: 9 × 8
-#>   stationary_depth sp_conductivity_uScm temperature_C pH_units DO_mgL
-#>              <dbl>                <dbl>         <dbl>    <dbl>  <dbl>
-#> 1            0.085                 66.8         18.0      7.26   9.85
-#> 2            1.04                  66.6         18.1      7.41   9.86
-#> 3            1.94                  66.3         17.5      7.33   9.68
-#> 4            2.90                  66.7         16.1      7.00   9.09
-#> 5            3.91                  65.7         15.3      6.74   8.02
-#> 6            4.88                  67.2         12.7      6.53   6.43
-#> 7            5.84                  66.9         10.6      6.36   5.08
-#> 8            6.82                  67.0          9.83     6.12   4.05
-#> 9            7.68                  68.9          9.52     5.84   2.38
+#> # A tibble: 9 × 9
+#>   stationary_depth sp_conductivity_uScm temperature_C pH_units DO_mgL DO_per
+#>              <dbl>                <dbl>         <dbl>    <dbl>  <dbl>  <dbl>
+#> 1            0.085                 66.8         18.0      7.26   9.85  108. 
+#> 2            1.04                  66.6         18.1      7.41   9.86  108. 
+#> 3            1.94                  66.3         17.5      7.33   9.68  105. 
+#> 4            2.90                  66.7         16.1      7.00   9.09   96.1
+#> 5            3.91                  65.7         15.3      6.74   8.02   82.8
+#> 6            4.88                  67.2         12.7      6.53   6.43   62.7
+#> 7            5.84                  66.9         10.6      6.36   5.08   47.2
+#> 8            6.82                  67.0          9.83     6.12   4.05   36.9
+#> 9            7.68                  68.9          9.52     5.84   2.38   21.5
 #> # ℹ 3 more variables: chlorophyll_RFU <dbl>, turbidity_NTU <dbl>,
 #> #   bga_fluorescence_RFU <dbl>
 ```

@@ -610,17 +610,17 @@ summary <- dat_final$Summary_Data
 **Table 2**: Example of `$Summary_Data` from the compiler function
 output.
 
-| stationary_depth | sp_conductivity_uScm | temperature_C | pH_units | DO_mgL | chlorophyll_RFU | turbidity_NTU | bga_fluorescence_RFU |
-|-----------------:|---------------------:|--------------:|---------:|-------:|----------------:|--------------:|---------------------:|
-|            0.085 |              66.8068 |       18.0236 |   7.2610 | 9.8488 |          0.0925 |        0.9281 |               0.0298 |
-|            1.042 |              66.5640 |       18.0551 |   7.4148 | 9.8603 |          0.8366 |        0.9497 |               0.0297 |
-|            1.943 |              66.3416 |       17.5420 |   7.3321 | 9.6794 |          1.4116 |        1.0790 |               0.0335 |
-|            2.900 |              66.7060 |       16.0662 |   6.9974 | 9.1063 |          1.8915 |        0.9871 |               0.0550 |
-|            3.910 |              65.6661 |       15.2921 |   6.7359 | 8.0189 |          1.6172 |        0.9122 |               0.0358 |
-|            4.894 |              67.1874 |       12.6911 |   6.5325 | 6.4276 |          0.1776 |        0.8601 |               0.0150 |
-|            5.837 |              66.8931 |       10.6287 |   6.3620 | 5.0798 |          0.0623 |        1.4473 |               0.0078 |
-|            6.827 |              66.9843 |        9.8301 |   6.1224 | 4.0520 |          0.0342 |        3.3588 |               0.0076 |
-|            7.685 |              68.8675 |        9.5200 |   5.8358 | 2.3769 |          0.0357 |        9.5760 |               0.0139 |
+| stationary_depth | sp_conductivity_uScm | temperature_C | pH_units | DO_mgL |   DO_per | chlorophyll_RFU | turbidity_NTU | bga_fluorescence_RFU |
+|-----------------:|---------------------:|--------------:|---------:|-------:|---------:|----------------:|--------------:|---------------------:|
+|            0.085 |              66.8068 |       18.0236 |   7.2610 | 9.8488 | 107.8445 |          0.0925 |        0.9281 |               0.0298 |
+|            1.042 |              66.5640 |       18.0551 |   7.4148 | 9.8603 | 108.1485 |          0.8366 |        0.9497 |               0.0297 |
+|            1.943 |              66.3416 |       17.5420 |   7.3321 | 9.6794 | 105.0327 |          1.4116 |        1.0790 |               0.0335 |
+|            2.900 |              66.7060 |       16.0662 |   6.9974 | 9.1063 |  95.8559 |          1.8915 |        0.9871 |               0.0550 |
+|            3.910 |              65.6661 |       15.2921 |   6.7359 | 8.0189 |  82.8336 |          1.6172 |        0.9122 |               0.0358 |
+|            4.894 |              67.1874 |       12.6911 |   6.5325 | 6.4276 |  62.6799 |          0.1776 |        0.8601 |               0.0150 |
+|            5.837 |              66.8931 |       10.6287 |   6.3620 | 5.0798 |  47.2309 |          0.0623 |        1.4473 |               0.0078 |
+|            6.827 |              66.9843 |        9.8301 |   6.1224 | 4.0520 |  36.9335 |          0.0342 |        3.3588 |               0.0076 |
+|            7.685 |              68.8675 |        9.5200 |   5.8358 | 2.3769 |  21.4933 |          0.0357 |        9.5760 |               0.0139 |
 
 The optional plotting should be used to visually ensure that each
 parameter was compiled as expected. The plots shown below are the
@@ -634,4 +634,4 @@ If any individual parameter looks incorrect, it is recommended to move
 outside of `TROLL_profile_compiler` and work in the individual workflow
 to tune, and bring those values back to the wrapper.
 
-![](TROLL-workflow_files/figure-html/final%20plots-1.png)![](TROLL-workflow_files/figure-html/final%20plots-2.png)![](TROLL-workflow_files/figure-html/final%20plots-3.png)![](TROLL-workflow_files/figure-html/final%20plots-4.png)![](TROLL-workflow_files/figure-html/final%20plots-5.png)![](TROLL-workflow_files/figure-html/final%20plots-6.png)![](TROLL-workflow_files/figure-html/final%20plots-7.png)
+![](TROLL-workflow_files/figure-html/final%20plots-1.png)![](TROLL-workflow_files/figure-html/final%20plots-2.png)![](TROLL-workflow_files/figure-html/final%20plots-3.png)![](TROLL-workflow_files/figure-html/final%20plots-4.png)![](TROLL-workflow_files/figure-html/final%20plots-5.png)![](TROLL-workflow_files/figure-html/final%20plots-6.png)![](TROLL-workflow_files/figure-html/final%20plots-7.png)![](TROLL-workflow_files/figure-html/final%20plots-8.png)
