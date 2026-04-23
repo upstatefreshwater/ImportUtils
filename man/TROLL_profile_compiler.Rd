@@ -83,7 +83,9 @@ This function executes the TROLL processing workflow in the following order:
   \item \bold{Stability Evaluation:} Calls \code{TROLL_sensor_stable()} for
   each parameter to identify "equilibrated" data points. Arguments for
   this step are prefixed with \code{stbl_}. Core parameters in data are
-  automatically detected from: \code{troll_column_dictionary[troll_column_dictionary$stbl_calc==TRUE,]}.
+  automatically detected from columns present in the data that are flagged
+  as either direct stability-calculation parameters (\code{stbl_calc}) or
+  derived parameters (\code{derived_param}) in \code{troll_column_dictionary}.
   \item \bold{Summarization:} If requested, calculates median values for stable
   windows at each depth using \code{TROLL_stable_summary()}.
   \item \bold{Visualization:} Optionally generates diagnostic plots comparing raw
